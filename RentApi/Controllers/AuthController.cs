@@ -43,7 +43,7 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
-            if (res.Password != dto.Password) {
+            if (res.Pwd != dto.Pwd) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
                 });
@@ -57,7 +57,7 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Name),
                     new Claim(ClaimTypes.Role, "admin"),
-                    new Claim("AccountId", res.id.ToString())
+                    new Claim("AccountId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
@@ -82,7 +82,7 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
-            if (!PasswordHelper.Verify(dto.Password, res.Pwd)) {
+            if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
                 });
@@ -120,7 +120,7 @@ namespace RentApi.Controllers {
             if (exist)
                 return BadRequest(new { message = "帳號已存在" });
 
-            string hashedPwd = PasswordHelper.Hash(dto.Account.Password);
+            string hashedPwd = PasswordHelper.Hash(dto.Account.Pwd);
 
             // 🔥 2. 建立 Account
             var account = new Account {
@@ -128,7 +128,7 @@ namespace RentApi.Controllers {
                 //Pwd = BCrypt.Net.BCrypt.HashPassword(dto.Account.Password),
                 Pwd = hashedPwd, // 存哈希後的密碼
                 Identity = (Identity)dto.Account.Identity,
-                is_Delete = false
+                IsDelete = false
             };
 
             _db.Account.Add(account);
