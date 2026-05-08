@@ -84,6 +84,7 @@ namespace RentApi.Controllers {
                 });
             }
             var user = _db.User.FirstOrDefault(a => a.AccountId == res.Id);
+            Console.WriteLine(user.Id);
             if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
@@ -110,7 +111,7 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, iden),
-                    new Claim("UserId", res.Id.ToString())
+                    new Claim("UserId", user.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
