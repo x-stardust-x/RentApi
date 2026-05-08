@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -57,7 +58,7 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, "admin"),
-                    new Claim("AccountId", res.Id.ToString())
+                    new Claim("AdminId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
@@ -82,6 +83,7 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
+            var user = _db.User.FirstOrDefault(a => a.AccountId == res.Id);
             if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
@@ -108,7 +110,7 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, iden),
-                    new Claim("AccountId", res.Id.ToString())
+                    new Claim("UserId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
