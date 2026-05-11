@@ -10,8 +10,21 @@ namespace RentApi.Data {
         public DbSet<Admin> Admin {  get; set; }
         public DbSet<Account> Account { get; set; }
         public DbSet<User> User { get; set; }
+        public DbSet<User_Habit> User_Habit { get; set; }
 
         public DbSet<Rent_House> Rent_Houses { get; set; }
         public DbSet<HouseImage> House_Images { get; set; }
+
+        public DbSet<City> City { get; set; }
+        public DbSet<District> District { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder) {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<City>()
+                .HasMany(c => c.Districts)
+                .WithOne(d => d.City)
+                .HasForeignKey(d => d.CityId);
+        }
     }
 }
