@@ -1,7 +1,26 @@
-﻿namespace RentApi.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace RentApi.Models
 {
+    [Table("Rent_Product")]
     public class RentProduct
     {
+        public string ProductType { get; } = "Skill/Tool";
 
+        #region 技能 / 工具
+
+        [Key]
+        public int Id { get; set; }
+        public string? Name { get; set; } // 技能名稱 / 工具名稱
+        public string? Url { get; set; } // 縮圖路徑
+        public int? RentPrice { get; set; } // 價格
+        public string? Address { get; set; } // 地址
+
+
+
+        public string? Description { get; set; } // 簡介
+
+        #endregion
     }
 }

@@ -2,7 +2,7 @@
 
 using RentApi.Models.DTO;
 
-namespace RentApi
+namespace RentApi.Interfaces
 {
     public interface IRentalMatchingService
     {
@@ -11,5 +11,7 @@ namespace RentApi
 
         // 根據 ID 取得單一詳情
         Task<Match_HouseDto?> GetRentalByAsync(int id);
+
+        //Task<IEnumerable<Match_ProductDto>> GetRentalAsync();
     }
 }

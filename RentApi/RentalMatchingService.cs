@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
-//using RentApi.Interfaces;
+using RentApi.Interfaces;
 using RentApi.Models;
 using RentApi.Models.DTO;
 
@@ -16,64 +16,86 @@ namespace RentApi
             _context = context;
         }
 
-        // 抓取所有【上架中】的房子
+        // 抓取所有【上架中】的房子 ( 回傳清單 )
+        //public async Task<IEnumerable<Match_HouseDto>> GetRentalAsync(int id)
         public async Task<IEnumerable<Match_HouseDto>> GetRentalAsync()
         {
-            return await _context.RentHouse
-                .Where(h => h.Status == 1) // 篩選上架中
-                .Select(h => new Match_HouseDto {
-                    Id = h.Id,
-                    Name = h.Name,
+            // 使用 LINQ Join 將 RentHouse 和 HouseRules 兩張資料表做關聯查詢
+            var query = from house in _context.RentHouse
+                        join rule in _context.HouseRules on house.Id equals rule.HouseId
+                        where house.Status == 1 // 只要上架的房屋
+                        select new Match_HouseDto
+                        {
+                            // 房屋基本資料
+                            Id = house.Id,
+                            AccountId = house.AccountId,
+                            DistrictId = house.DistrictId,
+                            Name = house.Name,
+                            Address = house.Address,
+                            Description = house.Description,
+                            RentPrice = house.RentPrice,
+                            IncludeUtilities = house.IncludeUtilities,
+                            IncludeWifi = house.IncludeWifi,
+                            IncludeManagementFee = house.IncludeManagementFee,
+                            AreaSize = house.AreaSize,
+                            LeaseTerm = house.LeaseTerm,
+                            FloorInfo = house.FloorInfo,
+                            HouseType = house.HouseType,
+                            ViewCount = house.ViewCount,
+                            Status = house.Status,
 
+                            // 生活習慣規範
+                            HouseId = rule.HouseId,
+                            SleepTime = rule.SleepTime,
+                            WakeTime = rule.WakeTime,
+                            CleanLevel = rule.CleanLevel,
+                            NoiseTolerance = rule.NoiseTolerance,
+                            Pet = rule.Pet,
+                            Smoke = rule.Smoke,
+                        };
 
-                    // 如有其他欄位請一併對應
-
-                })
-                .ToListAsync();
+            return await query.ToListAsync();
         }
 
-        // 在 RentalMatchingService 類別內新增
+
+        // 根據 ID 抓取單一房屋【詳情】( 回傳單筆 )
         public async Task<Match_HouseDto?> GetRentalByAsync(int id)
         {
-            var house = await _context.RentHouse.FindAsync(id);
+            var query = from house in _context.RentHouse
+                        join rule in _context.HouseRules on house.Id equals rule.HouseId
+                        where house.Id == id
+                        select new Match_HouseDto
+                        {
+                            // 房屋基本資料
+                            Id = house.Id,
+                            AccountId = house.AccountId,
+                            DistrictId = house.DistrictId,
+                            Name = house.Name,
+                            Address = house.Address,
+                            Description = house.Description,
+                            RentPrice = house.RentPrice,
+                            IncludeUtilities = house.IncludeUtilities,
+                            IncludeWifi = house.IncludeWifi,
+                            IncludeManagementFee = house.IncludeManagementFee,
+                            AreaSize = house.AreaSize,
+                            LeaseTerm = house.LeaseTerm,
+                            FloorInfo = house.FloorInfo,
+                            HouseType = house.HouseType,
+                            ViewCount = house.ViewCount,
+                            Status = house.Status,
 
-            if (house == null) return null;
+                            // 生活習慣規範
+                            HouseId = rule.HouseId,
+                            SleepTime = rule.SleepTime,
+                            WakeTime = rule.WakeTime,
+                            CleanLevel = rule.CleanLevel,
+                            NoiseTolerance = rule.NoiseTolerance,
+                            Pet = rule.Pet,
+                            Smoke = rule.Smoke,
+                        };
 
-            return new Match_HouseDto
-            {
-                Id = house.Id,
-                Name = house.Name,
-                Description = house.Description,
-                RentPrice = house.RentPrice,
-
-
-                // 如有其他欄位請一併對應
-                
-            };
+            return await query.FirstOrDefaultAsync();
         }
-
-
-
-
-
-        //// 2. 根據 ID 抓取詳情
-        //public async Task<Match_HouseDto?> GetRentalByIdAsync(int id)
-        //{
-        //    var house = await _context.Rent_House.FindAsync(id);
-
-        //    if (house == null) return null;
-
-        //    return new Match_HouseDto
-        //    {
-        //        Id = house.Id,
-        //        Name = house.Name,
-        //        Description = house.Description,
-        //        RentPrice = house.RentPrice,
-        //        AreaSize = house.AreaSize,
-        //        IncludeWifi = house.IncludeWifi,
-        //        // ... 補齊其他詳情欄位
-        //    };
-        //}
 
 
     }

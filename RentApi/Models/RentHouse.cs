@@ -1,34 +1,37 @@
-﻿namespace RentApi.Models {
-    public class RentHouse {
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
+namespace RentApi.Models {
+
+    [Table("Rent_House")]
+    public class RentHouse {
 
         public string ProductType { get; } = "House";
 
-
         #region 房屋
 
-        public int Id { get; set; } // ID
-        public string? Name { get; set; } // 名稱
-        public string? Url { get; set; } // 縮圖路徑
-        public int? RentPrice { get; set; } // 價格
-        public string? Address { get; set; } // 地址
-
+        [Key]
+        public int? Id { get; set; } // ID
+        public int? AccountId { get; set; } // 所屬房東
+        public string? Name { get; set; } // 房屋名稱 (標題)
+        public int? DistrictID { get; set; } // 關聯區域 (用於地區篩選)
+        public string? Address { get; set; } // 詳細地址
+        public string? Description { get; set; } // 描述/簡介
+        public int? RentPrice { get; set; } // 每月租金
+        public bool? IncludeUtilities { get; set; } // 是否含 水電
+        public bool? IncludeWifi { get; set; } // 是否含 網路
+        public bool? IncludeManagementFee { get; set; } // 是否含 管理費
+        public decimal? AreaSize { get; set; } // 坪數
+        public int? LeaseTerm { get; set; } // 租期時長需求 (如：6個月起，單位：月)
+        public string? FloorInfo { get; set; } // 樓層/電梯資訊
+        public string? HouseType { get; set; } // 房屋類型 (套房/雅房/活動空間)
+        public string? ViewCount { get; set; } // 瀏覽次數
         public int? Status { get; set; } // 狀態 (0:待審, 1:已上架, 2:退回, 3:已租出)
 
-        // =============== 生活習館規範 標籤群組 ===============
 
-        //public int? Id { get; set; }
-        public int HouseId { get; set; } // 房屋編號
-        public int SleepTime { get; set; } // 熄燈時間
-        public int WakeTime { get; set; } // 起床時間
-        public int CleanLevel { get; set; } // 需達到整潔程度
-        public int NoiseTolerance { get; set; } // 噪音程度
-        public bool? Pet { get; set; } // 是否可養寵物
-        public bool? Smoke { get; set; } // 是否禁菸
 
-        // =======================================
 
-        public string? Description { get; set; } // 簡介
+        public string? Url { get; set; } // 縮圖路徑 (或許要再新增欄位)
 
         #endregion
 
