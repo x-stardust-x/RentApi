@@ -19,9 +19,9 @@
 
         public string? Bio { get; set; }
 
-        public decimal Rating { get; set; }
+        public decimal? Rating { get; set; }
 
-        public int ReviewCount { get; set; }
+        public int? ReviewCount { get; set; }
 
         public DateTime? CreateAt { get; set; }
     }

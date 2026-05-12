@@ -162,6 +162,13 @@ namespace RentApi.Controllers {
             _db.User.Add(user);
             _db.SaveChanges();
 
+            var user_habit = new User_Habit {
+                UserId = user.Id,
+            };
+
+            _db.User_Habit.Add(user_habit);
+            _db.SaveChanges();
+
             return Ok(new {
                 message = "註冊成功"
             });
