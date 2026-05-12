@@ -20,7 +20,7 @@ builder.Services.AddScoped<IRentalMatchingService, RentalMatchingService>();
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowAngular",
         policy => {
-            policy.WithOrigins("http://localhost:4200")
+            policy.WithOrigins("http://localhost:1164", "http://localhost:4200")
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -42,7 +42,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")
-    )
+    ).EnableSensitiveDataLogging()
+     .LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Information)
 );
 
 var app = builder.Build();
@@ -57,6 +58,8 @@ app.UseCors("AllowAngular");
 
 app.UseHttpsRedirection();
 
+// Ensure authentication middleware runs before authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
