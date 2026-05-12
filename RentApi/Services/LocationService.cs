@@ -17,6 +17,14 @@ public class LocationService {
             .ToListAsync();
     }
 
+    //取得所有區域
+    public async Task<List<District>> GetDistrictsAsync() {
+        return await _db.District
+            .OrderBy(x => x.Id)
+            .ToListAsync();
+    }
+
+
     // 依 CityId 取得區域
     public async Task<List<District>> GetDistrictsByCityIdAsync(int cityId) {
         return await _db.District

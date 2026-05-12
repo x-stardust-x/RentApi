@@ -18,6 +18,12 @@ namespace RentApi.Controllers {
             return Ok(data);
         }
 
+        [HttpGet("districts-all")]
+        public async Task<IActionResult> GetAllDistricts() {
+            var data = await _service.GetDistrictsAsync();
+            return Ok(data);
+        }
+
         // GET: api/location/districts?cityId=1
         [HttpGet("districts")]
         public async Task<IActionResult> GetDistricts([FromQuery] int cityId) {

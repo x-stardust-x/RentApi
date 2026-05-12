@@ -3,58 +3,29 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models.DTO;
+using RentApi.Services;
 
 namespace RentApi.Controllers {
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase {
-        private readonly AppDbContext _db;
-        public UserController(AppDbContext db) {
-            _db = db;
+        private readonly UserService _service;
+        public UserController(UserService service) {
+            _service = service;
         }
         [HttpGet("profile/{userId}")]
-        public async Task<IActionResult?> GetUserProfileAsync(int userId) {
-            var result = await (
-                from u in _db.User
-                join d in _db.District on u.DistrictId equals d.Id
-                join c in _db.City on d.CityId equals c.Id
-                join h in _db.User_Habit on u.Id equals h.UserId into habitGroup
-                from h in habitGroup.DefaultIfEmpty()
-
-                where u.Id == userId
-
-                select new UserProfileDto {
-                    Id = u.Id,
-
-                    RealName = u.RealName,
-                    EnglishName = u.EnglishName,
-                    Avatar = u.Avatar,
-                    Phone = u.Phone,
-                    Address = u.Address,
-                    Bio = u.Bio,
-
-                    Rating = u.Rating,
-                    ReviewCount = u.ReviewCount,
-
-                    CityName = c.CityName,
-                    DistrictName = d.DistrictName,
-                    ZipCode = d.ZipCode,
-
-                    SleepTime = h != null ? h.SleepTime : 0,
-                    WakeTime = h != null ? h.WakeTime : 0,
-                    CleanLevel = h != null ? h.CleanLevel : 0,
-                    NoiseTolerance = h != null ? h.NoiseTolerance : 0,
-                    Pet = h.Pet,
-                    Smoke = h.Smoke,
-                    Interests = h != null ? h.Interests : null
-                }
-            ).FirstOrDefaultAsync();
-
+        public async Task<IActionResult> GetUserAsync(int userId) {
+            var result = await _service.GetProfileAsync(userId);
+            if (result == null)
+                return NotFound();
             return Ok(result);
         }
-        [HttpGet("GetUserHabbit/{userid}")]
-        public IActionResult EditUser(int userId) {
-            return BadRequest();
+        [HttpPut("profile/update")]
+        public async Task<IActionResult> UpdateAsync([FromBody] UpdateProfileDto dto) {
+            var result = await _service.UpdateProfileAsync(dto);
+            if (result == null)
+                return NotFound("User not found");
+            return Ok(result);
         }
     }
 
