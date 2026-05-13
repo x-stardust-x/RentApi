@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -37,7 +38,7 @@ namespace RentApi.Controllers {
 
         [HttpPost("login/admin")]
         public IActionResult AdminLogin(LoginDto dto) {
-            var res =  _db.Admin.FirstOrDefault(a => a.Name == dto.Username);
+            var res =  _db.Admin.FirstOrDefault(a => a.Email == dto.Email);
             if (res == null) {
                 return Unauthorized(new {
                     message = "帳號不存在"
@@ -55,52 +56,13 @@ namespace RentApi.Controllers {
 
             var claims = new[]
                 {
-                    new Claim(ClaimTypes.Name, res.Name),
-                    new Claim(ClaimTypes.Role, "admin"),
-                    new Claim("AccountId", res.Id.ToString())
-                };
-            var token = new JwtSecurityToken(
-                    claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(60),
-                    signingCredentials: creds
-                );
-
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return Ok(new {
-                message = "登入成功",
-                token = jwt,
-                username = res.Name,
-                role = "admin"
-            });
-        }
-        [HttpPost("login/member")]
-        public IActionResult Memberlogin(LoginDto dto) {
-            var res = _db.Account.FirstOrDefault(a => a.Username == dto.Username);
-            if (res == null) {
-                return Unauthorized(new {
-                    message = "帳號不存在"
-                });
-            }
-            if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
-                return Unauthorized(new {
-                    message = "密碼錯誤"
-                });
-            }
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-                {
                     new Claim(ClaimTypes.Name, res.Username),
-                    new Claim(ClaimTypes.Role, "member"),
-                    new Claim("AccountId", res.Id.ToString())
+                    new Claim(ClaimTypes.Role, "admin"),
+                    new Claim("AdminId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(60),
+                    expires: DateTime.UtcNow.AddSeconds(360),
                     signingCredentials: creds
                 );
 
@@ -110,13 +72,66 @@ namespace RentApi.Controllers {
                 message = "登入成功",
                 token = jwt,
                 username = res.Username,
-                role = "member"
+                role = "admin"
+            });
+        }
+        [HttpPost("login/member")]
+        public IActionResult Memberlogin(LoginDto dto) {
+            var res = _db.Account.FirstOrDefault(a => a.Email == dto.Email);
+            if (res == null) {
+                return Unauthorized(new {
+                    message = "帳號不存在"
+                });
+            }
+            var user = _db.User.FirstOrDefault(a => a.AccountId == res.Id);
+            Console.WriteLine(user.Id);
+            if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
+                return Unauthorized(new {
+                    message = "密碼錯誤"
+                });
+            }
+
+            var iden = "";
+
+            if(res.Identity == Identity.young) {
+                iden = "young";
+            }
+            else {
+                iden = "old";
+            }
+
+            res.LastLoginAt = DateTime.Now;
+            _db.SaveChanges();
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+                {
+                    new Claim(ClaimTypes.Name, res.Username),
+                    new Claim(ClaimTypes.Role, iden),
+                    new Claim("UserId", user.Id.ToString())
+                };
+            var token = new JwtSecurityToken(
+                    claims: claims,
+                    expires: DateTime.UtcNow.AddSeconds(360),
+                    signingCredentials: creds
+                );
+
+            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return Ok(new {
+                message = "登入成功",
+                token = jwt,
+                username = res.Username,
+                role = iden
             });
         }
         [HttpPost("register")]
         public IActionResult Register(RegisterDto dto) {
             // 🔥 1. 檢查帳號是否存在
-            var exist = _db.Account.Any(x => x.Username == dto.Account.Username);
+            var exist = _db.Account.Any(x => x.Email == dto.Account.Email);
             if (exist)
                 return BadRequest(new { message = "帳號已存在" });
 
@@ -125,10 +140,11 @@ namespace RentApi.Controllers {
             // 🔥 2. 建立 Account
             var account = new Account {
                 Username = dto.Account.Username,
-                //Pwd = BCrypt.Net.BCrypt.HashPassword(dto.Account.Password),
                 Pwd = hashedPwd, // 存哈希後的密碼
+                Email = dto.Account.Email,
+                Birthday = dto.Account.Birthday,
+                Age = dto.Account.Age,
                 Identity = (Identity)dto.Account.Identity,
-                IsDelete = false
             };
 
             _db.Account.Add(account);
@@ -137,12 +153,20 @@ namespace RentApi.Controllers {
             // 🔥 3. 建立 User
             var user = new User {
                 AccountId = account.Id,
-                Nickname = dto.User.Nickname,
-                Email = dto.User.Email,
-                Address = dto.User.Address
+                //Nickname = dto.User.Nickname,
+                //Email = dto.User.Email,
+                //Address = dto.User.Address,
+                CreateAt = DateTime.Now
             };
 
             _db.User.Add(user);
+            _db.SaveChanges();
+
+            var user_habit = new User_Habit {
+                UserId = user.Id,
+            };
+
+            _db.User_Habit.Add(user_habit);
             _db.SaveChanges();
 
             return Ok(new {

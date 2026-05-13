@@ -3,6 +3,7 @@ using RentApi.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using RentApi.Services;
 using RentApi;
 using RentApi.Interfaces;
 
@@ -14,6 +15,8 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<LocationService>();
+builder.Services.AddScoped<UserService>();
 
 builder.Services.AddScoped<IRentalMatchingService, RentalMatchingService>();
 
@@ -41,9 +44,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    ).EnableSensitiveDataLogging()
-     .LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Information)
+        builder.Configuration.GetConnectionString("IPConnection")
+    )
 );
 
 var app = builder.Build();
