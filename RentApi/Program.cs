@@ -4,6 +4,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using RentApi.Services;
+<<<<<<< Updated upstream
+=======
+using RentApi.Interfaces;
+>>>>>>> Stashed changes
 using RentApi;
 using RentApi.Interfaces;
 
