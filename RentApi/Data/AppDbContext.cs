@@ -15,6 +15,12 @@ namespace RentApi.Data {
         public DbSet<Rent_House> Rent_Houses { get; set; }
         public DbSet<HouseImage> House_Images { get; set; }
 
+
+        //public DbSet<RentHouse> RentHouse {  get; set; }
+        public DbSet<HouseRules> HouseRules { get; set; }
+
+
+
         public DbSet<City> City { get; set; }
         public DbSet<District> District { get; set; }
 

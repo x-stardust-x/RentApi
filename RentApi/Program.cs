@@ -1,9 +1,10 @@
-using Microsoft.EntityFrameworkCore;
-using RentApi.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using RentApi.Data;
+using RentApi.Interfaces;
 using RentApi.Services;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<LocationService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IRentalMatchingService, RentalMatchingService>();
 
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowAngular",
