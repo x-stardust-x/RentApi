@@ -10,6 +10,11 @@ namespace RentApi.Services {
         public UserService(AppDbContext db) {
             _db = db;
         }
+
+        public async Task<List<User>> GetAllAsync() {
+            return await _db.User.ToListAsync();
+        }
+
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
             return await(
                 from u in _db.User
