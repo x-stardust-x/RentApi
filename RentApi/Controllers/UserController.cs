@@ -13,6 +13,16 @@ namespace RentApi.Controllers {
         public UserController(UserService service) {
             _service = service;
         }
+        // 取得使用者列表
+        [HttpGet]
+        public async Task<IActionResult> Get() {
+            var res = await _service.GetAllAsync();
+            if (res == null)
+                return NoContent();
+            return Ok(res);
+        }
+
+        //  取得使用者個人資料
         [HttpGet("profile/{userId}")]
         public async Task<IActionResult> GetUserAsync(int userId) {
             var result = await _service.GetProfileAsync(userId);
@@ -20,6 +30,7 @@ namespace RentApi.Controllers {
                 return NotFound();
             return Ok(result);
         }
+        // 更新使用者個人資料
         [HttpPut("profile/update")]
         public async Task<IActionResult> UpdateAsync([FromBody] UpdateProfileDto dto) {
             var result = await _service.UpdateProfileAsync(dto);
