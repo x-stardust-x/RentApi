@@ -7,7 +7,8 @@
         #region 房屋
 
         public int? Id { get; set; } // ID
-        public int? AccountId { get; set; } // 所屬房東
+        public int? AccountId { get; set; } // 所屬房東ID
+        public string? UserName { get; set; } // 使用者名字
         public string? Name { get; set; } // 房屋名稱 (標題)
         public int? DistrictId { get; set; } // 關聯區域 (用於地區篩選)
         public string? Address { get; set; } // 詳細地址
@@ -30,8 +31,8 @@
 
         // 生活習慣規範 (來自 HouseRules)
         public int? HouseId { get; set; }
-        public DateTime? SleepTime { get; set; }
-        public DateTime? WakeTime { get; set; }
+        public TimeSpan? SleepTime { get; set; }
+        public TimeSpan? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }

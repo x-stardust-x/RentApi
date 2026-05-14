@@ -22,8 +22,13 @@ namespace RentApi.Services
         {
             // 使用 LINQ Join 將 RentHouse 和 HouseRules 兩張資料表做關聯查詢
             var query = from house in _context.Rent_Houses
+
                         join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
                         from rule in rules.DefaultIfEmpty()
+                        
+                        join account in _context.Account on house.AccountId equals account.Id into accounts
+                        from account in accounts.DefaultIfEmpty() // 使用Left join，預防帳號被刪除時房子抓不到
+                        
                         where house.Status == 1 // 只要上架的房屋
                         select new Match_HouseDto
                         {
@@ -47,8 +52,16 @@ namespace RentApi.Services
 
                             // 生活習慣規範
                             HouseId = rule != null ? rule.HouseId : null,
-                            SleepTime = rule != null ? (DateTime?)rule.SleepTime : null,
-                            WakeTime = rule != null ? (DateTime?)rule.WakeTime : null,
+
+                            //SleepTime = rule?.SleepTime,
+                            //WakeTime = rule?.WakeTime,
+
+                            SleepTime = rule != null ? rule.SleepTime : null,
+                            WakeTime = rule != null ? rule.WakeTime : null,
+
+                            //SleepTime = rule != null ? (TimeSpan?)rule.SleepTime : null,
+                            //WakeTime = rule != null ? (TimeSpan?)rule.WakeTime : null,
+
                             CleanLevel = rule != null ? (int?)rule.CleanLevel : null,
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
@@ -63,8 +76,13 @@ namespace RentApi.Services
         public async Task<Match_HouseDto?> GetRentalByAsync(int id)
         {
             var query = from house in _context.Rent_Houses
+                        
                         join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
                         from rule in rules.DefaultIfEmpty()
+
+                        join account in _context.Account on house.AccountId equals account.Id into accounts
+                        from account in accounts.DefaultIfEmpty()
+
                         where house.Id == id
                         select new Match_HouseDto
                         {
@@ -88,8 +106,13 @@ namespace RentApi.Services
 
                             // 生活習慣規範
                             HouseId = rule != null ? rule.HouseId : null,
-                            SleepTime = rule != null ? (DateTime?)rule.SleepTime : null,
-                            WakeTime = rule != null ? (DateTime?)rule.WakeTime : null,
+
+                            SleepTime = rule != null ? rule.SleepTime : null,
+                            WakeTime = rule != null ? rule.WakeTime : null,
+
+                            //SleepTime = rule != null ? (TimeSpan?)rule.SleepTime : null,
+                            //WakeTime = rule != null ? (TimeSpan?)rule.WakeTime : null,
+
                             CleanLevel = rule != null ? (int?)rule.CleanLevel : null,
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
