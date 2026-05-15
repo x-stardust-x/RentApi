@@ -34,5 +34,6 @@ namespace RentApi.Data {
         }
 
         public DbSet<System_Announcement> System_Announcement { get; set; }
+        public DbSet<System_Log> System_Log { get; set; }
     }
 }
