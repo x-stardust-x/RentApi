@@ -28,7 +28,10 @@ namespace RentApi.Services
                         
                         join account in _context.Account on house.AccountId equals account.Id into accounts
                         from account in accounts.DefaultIfEmpty() // 使用Left join，預防帳號被刪除時房子抓不到
-                        
+
+                        join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
+                        from user in users.DefaultIfEmpty()
+
                         where house.Status == 1 // 只要上架的房屋
                         select new Match_HouseDto
                         {
@@ -59,7 +62,9 @@ namespace RentApi.Services
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
 
-                            
+                            // 真實名字
+                            RealName = user != null ? user.RealName : "未知提供者",
+
                         };
 
             return await query.ToListAsync();
@@ -131,6 +136,10 @@ namespace RentApi.Services
                             // 租賃物圖片，先給空陣列，避免前端報錯
                             ImageUrls = new List<string>(),
 
+
+                            // 真實名字
+                            RealName = user !=  null ? user.RealName : "未知提供者",
+
                             //// 租賃物圖片
                             //ImageUrls = _context.House_Images
                             //                    .Where(img => img.HouseId == house.Id)
@@ -163,25 +172,56 @@ namespace RentApi.Services
         // 實作一：抓取所有工具技能
         public async Task<IEnumerable<Match_ProductDto>> GetProductAsync()
         {
-            return await _context.Rent_Products // 注意：如果你的 DbSet 名字不同（例如叫 Products），請改成你的名字
-                .Select(p => new Match_ProductDto
-                {
-                    Id = p.Id,
-                    AccountId = p.AccountId,
-                    Name = p.Name,
-                    Category = p.Category,
-                    Description = p.Description,
-                    Price = p.Price,
-                    PriceUnit = p.PriceUnit,
-                    Deposit = p.Deposit,
-                    IsOnline = p.IsOnline,
-                    Quantity = p.Quantity,
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-                    OwnTool = p.OwnTool,
-                    RequiredKnowledge = p.RequiredKnowledge,
-                    Address = p.Address,
-                }).ToListAsync();
+            //return await _context.Rent_Products // 注意：如果你的 DbSet 名字不同（例如叫 Products），請改成你的名字
+
+
+            var query = from product in _context.Rent_Products
+
+
+                        //// 原有的 HouseRules
+                        //join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
+                        //from rule in rules.DefaultIfEmpty()
+
+
+                            // 關聯 Account 表，取得提供者帳號名稱
+                        join account in _context.Account
+                        on product.AccountId equals account.Id into accounts
+                        from account in accounts.DefaultIfEmpty()
+
+                            // 關聯 User 表，取得提供者自我介紹、評分、評價數
+                        join user in _context.User
+                            on (account != null ? account.Id : -1) equals user.AccountId into users
+                        from user in users.DefaultIfEmpty()
+
+
+                        select new Match_ProductDto
+                        {
+                            Id = product.Id,
+                            AccountId = product.AccountId,
+                            Name = product.Name,
+                            Category = product.Category,
+                            Description = product.Description,
+                            Price = product.Price,
+                            PriceUnit = product.PriceUnit,
+                            Deposit = product.Deposit,
+                            IsOnline = product.IsOnline,
+                            Quantity = product.Quantity,
+                            CreatedAt = product.CreatedAt,
+                            UpdatedAt = product.UpdatedAt,
+                            OwnTool = product.OwnTool,
+                            RequiredKnowledge = product.RequiredKnowledge,
+                            Address = product.Address,
+
+                            // 提供者資料
+                            UserName = account != null ? account.Username : "未知提供者",
+                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                            Rating = user != null ? user.Rating : 0,
+                            ReviewCount = user != null ? user.ReviewCount : 0,
+
+                            // 真實名字
+                            RealName = user != null ? user.RealName : "未知提供者",
+                        };
+            return await query.ToListAsync();
         }
 
         // 實作二：依據 ID 抓取單一工具技能詳情
@@ -190,22 +230,48 @@ namespace RentApi.Services
             var p = await _context.Rent_Products.FirstOrDefaultAsync(x => x.Id == id); // 💡 這裡也一樣要對齊你的 DbSet 名字
             if (p == null) return null;
 
-            return new Match_ProductDto
-            {
-                Id = p.Id,
-                AccountId = p.AccountId,
-                Name = p.Name,
-                Category = p.Category,
-                Description = p.Description,
-                Price = p.Price,
-                PriceUnit = p.PriceUnit,
-                Deposit = p.Deposit,
-                IsOnline = p.IsOnline,
-                Quantity = p.Quantity,
-                OwnTool = p.OwnTool,
-                RequiredKnowledge = p.RequiredKnowledge,
-                Address = p.Address,
-            };
+
+            var query = from product in _context.Rent_Products
+
+                            // 關聯 Account 表，取得提供者帳號名稱
+                        join account in _context.Account
+                        on product.AccountId equals account.Id into accounts
+                        from account in accounts.DefaultIfEmpty()
+
+                            // 關聯 User 表，取得提供者自我介紹、評分、評價數
+                        join user in _context.User
+                            on (account != null ? account.Id : -1) equals user.AccountId into users
+                        from user in users.DefaultIfEmpty()
+
+                        where product.Id == id
+
+
+                        select new Match_ProductDto
+                        {
+                            Id = p.Id,
+                            AccountId = p.AccountId,
+                            Name = p.Name,
+                            Category = p.Category,
+                            Description = p.Description,
+                            Price = p.Price,
+                            PriceUnit = p.PriceUnit,
+                            Deposit = p.Deposit,
+                            IsOnline = p.IsOnline,
+                            Quantity = p.Quantity,
+                            OwnTool = p.OwnTool,
+                            RequiredKnowledge = p.RequiredKnowledge,
+                            Address = p.Address,
+
+                            // 提供者資料
+                            UserName = account != null ? account.Username : "未知提供者",
+                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                            Rating = user != null ? user.Rating : 0,
+                            ReviewCount = user != null ? user.ReviewCount : 0,
+
+                            // 真實名字
+                            RealName = user !=  null ? user.RealName : "未知提供者",
+                        };
+            return await query.FirstOrDefaultAsync();
         }
 
     }

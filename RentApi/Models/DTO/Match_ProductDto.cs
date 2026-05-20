@@ -61,5 +61,17 @@
 
         // 地址
         public string? Address { get; set; }
+
+
+
+        // 提供者資料
+        public string? UserName { get; set; }
+        public string? Bio { get; set; }
+        public decimal? Rating { get; set; }
+        public int? ReviewCount { get; set; }
+
+
+        // 真實名字
+        public string? RealName { get; set; }
     }
 }

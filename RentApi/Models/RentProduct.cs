@@ -53,5 +53,6 @@ namespace RentApi.Models
 
         // 地址
         public string? Address { get; set; }
+
     }
 }

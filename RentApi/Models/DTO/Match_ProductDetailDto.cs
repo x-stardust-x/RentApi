@@ -46,5 +46,8 @@
 
         // 地址
         public string? Address { get; set; }
+
+        // 真實名字
+        public string? RealName { get; set; }
     }
 }
