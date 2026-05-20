@@ -17,7 +17,7 @@ namespace RentApi.Controllers {
         [HttpGet]
         public async Task<IActionResult> Get() {
             var result = await _service.GetAllAsync();
-            if (result == null) {
+            if (result.Count == 0) {
                 return NotFound("No announcements found.");
             }
             return Ok(result);

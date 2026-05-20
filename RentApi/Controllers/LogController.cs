@@ -15,7 +15,7 @@ namespace RentApi.Controllers {
         [HttpGet]
         public async Task<IActionResult> Get() {
             var res = await _service.GetAllAsync();
-            if (res == null) {
+            if (res.Count == 0) {
                 return NotFound("No Data");
             }
             return Ok(res);
@@ -23,7 +23,7 @@ namespace RentApi.Controllers {
         [HttpGet("{id}")]
         public async Task<IActionResult> GetByUserId(int id) {
             var res = await _service.GetByUserIdAsync(id);
-            if (res == null) {
+            if (res.Count == 0) {
                 return NotFound("No Data");
             }
             return Ok(res);

@@ -18,6 +18,7 @@ builder.Services.AddScoped<LocationService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<NewsService>();
 builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<FAQService>();
 builder.Services.AddScoped<IRentalMatchingService, RentalMatchingService>();
 
 builder.Services.AddCors(options => {
