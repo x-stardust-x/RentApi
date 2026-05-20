@@ -31,13 +31,16 @@
 
         // 生活習慣規範 (來自 HouseRules)
         public int? HouseId { get; set; }
-        public int? SleepTime { get; set; }
-        public int? WakeTime { get; set; }
+        public TimeSpan? SleepTime { get; set; }
+        public TimeSpan? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
 
+
+        // 真實名字
+        public string? RealName { get; set; }
 
 
         #endregion
