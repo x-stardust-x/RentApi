@@ -47,8 +47,8 @@ namespace RentApi.Services
 
                             // 生活習慣規範
                             HouseId = rule != null ? rule.HouseId : null,
-                            SleepTime = rule != null ? rule.SleepTime : null,
-                            WakeTime = rule != null ? rule.WakeTime : null,
+                            SleepTime = rule != null ? (TimeOnly?)rule.SleepTime : null,
+                            WakeTime = rule != null ? (TimeOnly?)rule.WakeTime : null,
                             CleanLevel = rule != null ? (int?)rule.CleanLevel : null,
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
