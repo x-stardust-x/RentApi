@@ -293,8 +293,8 @@ namespace CoLiving.Controllers
 
 
         // 🌟 新增：對應前端送過來的生活習慣資料
-        public int SleepTime { get; set; }
-        public int WakeTime { get; set; }
+        public TimeOnly SleepTime { get; set; }
+        public TimeOnly WakeTime { get; set; }
         public int CleanLevel { get; set; }
         public int NoiseTolerance { get; set; }
         public bool Pet { get; set; }
