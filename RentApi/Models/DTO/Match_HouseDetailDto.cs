@@ -31,8 +31,8 @@
 
         // 生活習慣規範 (來自 HouseRules)
         public int? HouseId { get; set; }
-        public DateTime? SleepTime { get; set; }
-        public DateTime? WakeTime { get; set; }
+        public int? SleepTime { get; set; }
+        public int? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }

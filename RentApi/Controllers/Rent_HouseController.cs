@@ -17,6 +17,7 @@ namespace CoLiving.Controllers
         public RentHouseController(AppDbContext context)
         {
             _context = context;
+            
         }
 
         // 1. 新增房屋 (已同步最新欄位)
@@ -28,62 +29,78 @@ namespace CoLiving.Controllers
 
             var newHouse = new Rent_House
             {
+
                 AccountId = request.AccountId,
-                DistrictId = request.DistrictId, // 🆕 新增
+                DistrictId = request.DistrictId,
                 Name = request.Name,
                 Address = request.Address,
                 Description = request.Description,
                 RentPrice = request.RentPrice,
-                // 🆕 以下為新增的詳細欄位
                 IncludeUtilities = request.IncludeUtilities,
                 IncludeWifi = request.IncludeWifi,
-                IncludeManagementFee = request.IncludeManagementFee, // 照資料庫拼錯字
+                IncludeManagementFee = request.IncludeManagementFee,
                 AreaSize = request.AreaSize,
                 LeaseTerm = request.LeaseTerm,
                 FloorInfo = request.FloorInfo,
                 HouseType = request.HouseType,
-                ViewCount = request.ViewCount ?? 0, // 預設 0
+                ViewCount = request.ViewCount ?? 0,
                 Status = request.Status
             };
 
             _context.Rent_Houses.Add(newHouse);
             _context.SaveChanges();
 
-            return Ok(new
+
+            var newRule = new HouseRules
             {
-                Message = " 房屋上架成功！",
                 HouseId = newHouse.Id,
-                HouseData = newHouse
-            });
+                SleepTime = request.SleepTime,
+                WakeTime = request.WakeTime,
+                CleanLevel = request.CleanLevel,
+                NoiseTolerance = request.NoiseTolerance,
+                Pet = request.Pet,
+                Smoke = request.Smoke
+
+            };
+
+            _context.HouseRules.Add(newRule);
+            _context.SaveChanges();
+
+            return Ok(newHouse);
         }
 
         // 2. 取得房屋列表 
         [HttpGet]
         public IActionResult GetAllHouses()
         {
-            var houses = _context.Rent_Houses.ToList();
-
-            var result = houses.Select(h => new
+            
+            var result = _context.Rent_Houses.Select(h => new
             {
                 h.Id,
                 h.Name,
                 h.Address,
                 h.RentPrice,
-                h.HouseType,   //  展示類型
-                h.AreaSize,    //  展示坪數
-                h.Status,      //  展示狀態
+                h.HouseType,
+                h.AreaSize,
+                h.Status,
+                Description = h.Description,
 
+                // 抓取生活公約
+                SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
+                WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
+                CleanLevel = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.CleanLevel).FirstOrDefault(),
+                NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
+                Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
+                Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
 
                 FloorInfo = h.FloorInfo,
                 IncludeUtilities = h.IncludeUtilities,
                 IncludeWifi = h.IncludeWifi,
                 IncludeManagememtFee = h.IncludeManagementFee,
-                CoverUrl = _context.House_Images
-                                   .FirstOrDefault(img => img.HouseId == h.Id && img.IsCover == true)?.Url,
-                Images = _context.House_Images
-                                 .Where(img => img.HouseId == h.Id)
-                                 .Select(img => new { img.Id, img.Url, img.IsCover })
-                                 .ToList()
+
+                // 📸 精準抓取照片關聯
+                CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
+                Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
             }).ToList();
 
             return Ok(result);
@@ -98,7 +115,7 @@ namespace CoLiving.Controllers
             return Ok(house);
         }
 
-        // ✏️ 4. 修改房屋資料 (全欄位更新)
+        //  4. 修改房屋資料 
         [HttpPut("{id}")]
         public IActionResult UpdateHouse(int id, [FromBody] CreateHouseDto request)
         {
@@ -126,16 +143,77 @@ namespace CoLiving.Controllers
             return Ok(new { Message = "房屋資料更新成功！", HouseData = house });
         }
 
-        // 🗑️ 5. 刪除房屋
-        [HttpDelete("{id}")]
-        public IActionResult DeleteHouse(int id)
+        //核准上架
+        [HttpPut("Approve/{id}")]
+        public IActionResult ApproveHouseStatus(int id)
         {
             var house = _context.Rent_Houses.Find(id);
-            if (house == null) return NotFound("找不到要刪除的房子！");
+            if (house == null) return NotFound("找不到這間房子喔！");
+
+
+            house.Status = 2;
+            _context.SaveChanges();
+
+            return Ok(new { Message = "房屋核准成功！" });
+        }
+        // 強制下架 (將狀態改為 3)
+        [HttpPut("TakeDown/{id}")]
+        public IActionResult TakeDownHouseStatus(int id)
+        {
+            var house = _context.Rent_Houses.Find(id);
+            if (house == null) return NotFound("找不到這間房子喔！");
+
+            house.Status = 3; 
+            _context.SaveChanges();
+
+            return Ok(new { Message = "房屋已強制下架！" });
+        }
+
+        // 獲取所有行政區選單的 API
+        [HttpGet("Districts")]
+        public IActionResult GetDistricts()
+        {
+            var districts = _context.District
+                .Select(d => new {
+                    DistrictId = d.Id,
+                    CityName = d.City.CityName,
+                    DistrictName = d.DistrictName
+                })
+                .ToList();
+
+            return Ok(districts);
+        }
+        // 🗑️ 5. 刪除房屋
+
+        [HttpDelete("{id}")]
+        public IActionResult RejectHouse(int id)
+        {
+
+            var house = _context.Rent_Houses.Find(id);
+            if (house == null) return NotFound("找不到該房屋申請！");
+
+
+            var rules = _context.HouseRules.Where(r => r.HouseId == id).ToList();
+            if (rules.Any())
+            {
+                _context.HouseRules.RemoveRange(rules);
+            }
+
+
+            var images = _context.House_Images.Where(i => i.HouseId == id).ToList();
+            if (images.Any())
+            {
+
+                _context.House_Images.RemoveRange(images);
+            }
+
 
             _context.Rent_Houses.Remove(house);
+
+
             _context.SaveChanges();
-            return Ok("房屋刪除成功！");
+
+            return Ok(new { Message = "申請已成功退回，相關資料已刪除！" });
         }
 
         // ==========================================
@@ -150,7 +228,7 @@ namespace CoLiving.Controllers
                 HouseId = request.HouseId,
                 Url = request.Url,
                 Description = request.Description,
-                IsCover = false
+                IsCover = request.IsCover
             };
             _context.House_Images.Add(newImage);
             _context.SaveChanges();
@@ -203,7 +281,7 @@ namespace CoLiving.Controllers
         //  新增對應 bit 的 bool
         public bool IncludeUtilities { get; set; }
         public bool IncludeWifi { get; set; }
-        public bool IncludeManagementFee { get; set; } 
+        public bool IncludeManagementFee { get; set; }
 
         //  新增規格
         public decimal? AreaSize { get; set; }
@@ -212,12 +290,19 @@ namespace CoLiving.Controllers
         public string HouseType { get; set; }
         public int? ViewCount { get; set; }
         public int Status { get; set; }
+
+
+        // 🌟 新增：對應前端送過來的生活習慣資料
+        public int SleepTime { get; set; }
+        public int WakeTime { get; set; }
+        public int CleanLevel { get; set; }
+        public int NoiseTolerance { get; set; }
+        public bool Pet { get; set; }
+        public bool Smoke { get; set; }
+        public string? Interests { get; set; }
+
+
     }
 
-    public class AddHouseImageDto
-    {
-        public int HouseId { get; set; }
-        public string Url { get; set; }
-        public string Description { get; set; }
-    }
+
 }
