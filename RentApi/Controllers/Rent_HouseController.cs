@@ -184,10 +184,10 @@ namespace CoLiving.Controllers
         [HttpGet("Districts")]
         public IActionResult GetDistricts()
         {
-            var districts = _context.District
+            var districts = _context.Location_District
                 .Select(d => new {
-                    DistrictId = d.Id,
-                    CityName = d.City.CityName,
+                    DistrictId = d.DistrictId,
+                    CityName = d.CityName,
                     DistrictName = d.DistrictName
                 })
                 .ToList();
