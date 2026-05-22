@@ -1,13 +1,15 @@
-﻿using RentApi.Data;
+﻿using CoLiving.models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RentApi.Data;
 using RentApi.Data;
 using RentApi.Models;
 using System.IO;
 using System.Linq;
-using CoLiving.models;
 
 namespace CoLiving.Controllers
 {
+
     [Route("api/[controller]")]
     [ApiController]
     public class RentHouseController : Controller
@@ -73,35 +75,44 @@ namespace CoLiving.Controllers
         [HttpGet]
         public IActionResult GetAllHouses()
         {
-            
-            var result = _context.Rent_Houses.Select(h => new
-            {
-                h.Id,
-                h.Name,
-                h.Address,
-                h.RentPrice,
-                h.HouseType,
-                h.AreaSize,
-                h.Status,
-                Description = h.Description,
+            var result = (from h in _context.Rent_Houses
 
-                // 抓取生活公約
-                SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
-                WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
-                CleanLevel = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.CleanLevel).FirstOrDefault(),
-                NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
-                Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
-                Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
+                              // 🎯 關鍵連動：利用 house 的 DistrictId 去關聯地點表！
+                          join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locations
+                          from loc in locations.DefaultIfEmpty()
 
-                FloorInfo = h.FloorInfo,
-                IncludeUtilities = h.IncludeUtilities,
-                IncludeWifi = h.IncludeWifi,
-                IncludeManagememtFee = h.IncludeManagementFee,
+                          select new
+                          {
+                              h.Id,
+                              h.Name,
+                              h.Address,
+                              h.RentPrice,
+                              h.HouseType,
+                              h.AreaSize,
+                              h.Status,
+                              Description = h.Description,
 
-                // 📸 精準抓取照片關聯
-                CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
-                Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
-            }).ToList();
+                              // 🌟 實打實地把縣市與區域名稱抓出來，吐給前端審核與媒合頁面！
+                              CityName = loc != null ? loc.CityName : "",
+                              DistrictName = loc != null ? loc.DistrictName : "",
+
+                              // 抓取生活公約
+                              SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
+                              WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
+                              CleanLevel = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.CleanLevel).FirstOrDefault(),
+                              NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
+                              Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
+                              Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
+
+                              FloorInfo = h.FloorInfo,
+                              IncludeUtilities = h.IncludeUtilities,
+                              IncludeWifi = h.IncludeWifi,
+                              IncludeManagememtFee = h.IncludeManagementFee,
+
+                              // 📸 精準抓取照片關聯
+                              CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
+                              Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
+                          }).ToList();
 
             return Ok(result);
         }
@@ -143,15 +154,15 @@ namespace CoLiving.Controllers
             return Ok(new { Message = "房屋資料更新成功！", HouseData = house });
         }
 
-        //核准上架
+        // ✅ 核准上架
         [HttpPut("Approve/{id}")]
         public IActionResult ApproveHouseStatus(int id)
         {
             var house = _context.Rent_Houses.Find(id);
             if (house == null) return NotFound("找不到這間房子喔！");
 
-
-            house.Status = 2;
+            // 🌟 終極修正：核准上架必須是 1 ！
+            house.Status = 1;
             _context.SaveChanges();
 
             return Ok(new { Message = "房屋核准成功！" });

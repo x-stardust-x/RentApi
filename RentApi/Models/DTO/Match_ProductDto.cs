@@ -62,7 +62,9 @@
         // 地址
         public string? Address { get; set; }
 
-
+        public int? DistrictId { get; set; }
+        public string CityName { get; set; } = string.Empty;
+        public string DistrictName { get; set; } = string.Empty;
 
         // 提供者資料
         public string? UserName { get; set; }

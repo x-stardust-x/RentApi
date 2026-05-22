@@ -25,7 +25,9 @@
         public int? ViewCount { get; set; } // 瀏覽次數
         public int? Status { get; set; } // 狀態 (0:待審, 1:已上架, 2:退回, 3:已租出)
 
-
+        public string CityName { get; set; } = string.Empty;
+        public string DistrictName { get; set; } = string.Empty;
+        public string ZipCode { get; set; } = string.Empty;
 
         // 租賃物圖片 (來自 House_Image)
         public string? Url { get; set; } // 縮圖路徑 (或許要再新增欄位)
