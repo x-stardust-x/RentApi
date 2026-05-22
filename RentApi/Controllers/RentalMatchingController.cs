@@ -19,7 +19,7 @@ namespace RentApi.Controllers
         }
 
         // 端點一：GET api/Rental
-        [HttpGet]
+        [HttpGet("RentHouse")]
         public async Task<ActionResult<IEnumerable<Match_HouseDto>>> GetAllAsync()
         {
             try
@@ -37,7 +37,7 @@ namespace RentApi.Controllers
         }
 
         // 端點二：GET api/Rental/{id} ( 根據 ID 取得單一房子詳情 )
-        [HttpGet("{id}")]
+        [HttpGet("RentSingle/{id}")]
         public async Task<ActionResult<Match_HouseDto>> GetRentalById(int id)
         {
             try
@@ -58,6 +58,27 @@ namespace RentApi.Controllers
             }
         }
 
+        [HttpGet("RentProduct")]
+        public async Task<ActionResult<IEnumerable<Match_ProductDto>>> GetAllproductAsync()
+        {
+            try
+            {
+                var products = await _rentalMatchingService.GetProductAsync();
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"伺服器發生錯誤：{ex.Message}");
+            }
+        }
+
+        [HttpGet("RentProduct/{id}")]
+        public async Task<ActionResult<Match_ProductDto>> GetProductById(int id)
+        {
+            var product = await _rentalMatchingService.GetProductByIdAsync(id);
+            if (product == null) return NotFound();
+            return Ok(product);
+        }
 
     }
 }
