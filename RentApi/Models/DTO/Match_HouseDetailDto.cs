@@ -39,6 +39,9 @@
         public bool? Smoke { get; set; }
 
 
+        // 真實名字
+        public string? RealName { get; set; }
+
 
         #endregion
 

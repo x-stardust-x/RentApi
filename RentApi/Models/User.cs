@@ -10,8 +10,7 @@
 
         public string? EnglishName { get; set; }
 
-        // image 對應 byte[]
-        public byte[]? Avatar { get; set; }
+        public string? Avatar { get; set; }
 
         public string? Address { get; set; }
 
