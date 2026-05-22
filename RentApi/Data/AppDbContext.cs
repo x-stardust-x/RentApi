@@ -30,21 +30,11 @@ namespace RentApi.Data
 
 
         public DbSet<City> City { get; set; }
-        public DbSet<District> District { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-
-            modelBuilder.Entity<City>()
-                .HasMany(c => c.Districts)
-                .WithOne(d => d.City)
-                .HasForeignKey(d => d.CityId);
-        }
+        public DbSet<Location_District> Location_District { get; set; }
 
         public DbSet<System_Announcement> System_Announcement { get; set; }
-        //public DbSet<System_Log> System_Log { get; set; }
-        //public DbSet<FAQ_Category> FAQ_Category { get; set; }
-        //public DbSet<FAQ_Item> FAQ_Item { get; set; }
+        public DbSet<System_Log> System_Log { get; set; }
+        public DbSet<FAQ_Category> FAQ_Category { get; set; }
+        public DbSet<FAQ_Item> FAQ_Item { get; set; }
     }
 }

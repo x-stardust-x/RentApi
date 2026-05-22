@@ -33,6 +33,7 @@ namespace RentApi.Controllers {
         public IActionResult Post([FromBody] Admin admin) {
             if (admin == null)
                 return BadRequest();
+            admin.Pwd = "0000";
             _context.Admin.Add(admin);
             _context.SaveChanges();
             return Ok(admin);
