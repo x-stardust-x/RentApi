@@ -50,4 +50,8 @@
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
     }
+
 }
+
+
+
