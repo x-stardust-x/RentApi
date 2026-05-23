@@ -45,7 +45,7 @@
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
-
+        public string? AdvancedRules { get; set; }
 
         // 使用者評價
         public decimal? Rating { get; set; }

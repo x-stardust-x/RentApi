@@ -70,6 +70,7 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
                             RealName = user != null ? user.RealName : "未知提供者"
                         };
@@ -135,6 +136,7 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
                             ImageUrls = new List<string>(),
                             RealName = user != null ? user.RealName : "未知提供者"
