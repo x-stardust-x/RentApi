@@ -53,6 +53,7 @@ namespace YourProjectNamespace.Dtos
 
         /// 深夜洗衣/洗澡限制：無限制, 22:00後禁止, 23:00後禁止
         public List<string> ShowerRestrictions { get; set; } = new List<string>();
+        public List<string> LimitLaundry { get; set; } = new List<string>();
 
         /// 訪客留宿規範：完全謝絕訪客, 僅限白天拜訪, 可帶異性或同性過夜
         public List<string> VisitorPolicies { get; set; } = new List<string>();
@@ -65,5 +66,11 @@ namespace YourProjectNamespace.Dtos
 
         /// 期望交流頻率：純租屋互不打擾, 願意每週共餐聊天, 期待技能傳承交流
         public List<string> InteractionFrequencies { get; set; } = new List<string>();
+
+        public List<string>? LifeStyle { get; set; }
+
+
+        // 在 RentalFilterRequestDto.cs 中
+        public List<string> AdvancedRules { get; set; } = new List<string>();
     }
 }
