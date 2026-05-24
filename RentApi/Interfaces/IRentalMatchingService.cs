@@ -1,6 +1,7 @@
 ﻿//using Match_HouseDetailDto.DTOs;
 
 using RentApi.Models.DTO;
+using YourProjectNamespace.Dtos;
 
 namespace RentApi.Interfaces
 {
@@ -12,5 +13,6 @@ namespace RentApi.Interfaces
         Task<Match_HouseDto?> GetRentalByAsync(int id);
         Task<IEnumerable<Match_ProductDto>> GetProductAsync();
         Task<Match_ProductDto?> GetProductByIdAsync(int id);
+        Task<IEnumerable<object>> SearchRentalsAsync(RentalFilterRequestDto request);
     }
 }
