@@ -63,11 +63,13 @@ namespace CoLiving.Controllers
                 Pet = request.Pet,
                 Smoke = request.Smoke,
 
+
                 
 
-                // 🌟 終極關鍵：把前端傳來的「進階生活規範」寫進資料庫！
+                
                 AdvancedRules = request.AdvancedRules ?? string.Empty
-            };
+
+                        };
 
             _context.HouseRules.Add(newRule);
             _context.SaveChanges();
@@ -107,6 +109,7 @@ namespace CoLiving.Controllers
                               NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
                               Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
                               Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
+                              AdvancedRules = "",
 
                               FloorInfo = h.FloorInfo,
                               IncludeUtilities = h.IncludeUtilities,
@@ -318,6 +321,7 @@ namespace CoLiving.Controllers
 
         public string AdvancedRules { get; set; } = string.Empty;
 
+        
     }
 
 

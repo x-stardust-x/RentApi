@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models.DTO;
 using RentApi.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace RentApi.Controllers {
     [Route("api/[controller]")]
@@ -36,6 +37,19 @@ namespace RentApi.Controllers {
             var result = await _service.UpdateProfileAsync(dto);
             if (result == null)
                 return NotFound("User not found");
+            return Ok(result);
+        }
+
+        // 取得出租人公開個人檔案 (無論有沒有登入都能看)
+        [AllowAnonymous]
+        [HttpGet("public-profile/{accountId}")]
+        public async Task<IActionResult> GetPublicProfileAsync(int accountId)
+        {
+            var result = await _service.GetPublicProfileByAccountIdAsync(accountId);
+
+            if (result == null)
+                return NotFound("找不到該會員的公開檔案");
+
             return Ok(result);
         }
     }

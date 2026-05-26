@@ -15,7 +15,7 @@
 
 
 
-
+        public string? CoverUrl { get; set; }
 
         // 主鍵 ID（不允許 Null）
         public int Id { get; set; }
@@ -61,7 +61,6 @@
 
         // 地址
         public string? Address { get; set; }
-
         public int? DistrictId { get; set; }
         public string CityName { get; set; } = string.Empty;
         public string DistrictName { get; set; } = string.Empty;
@@ -75,5 +74,9 @@
 
         // 真實名字
         public string? RealName { get; set; }
+
+        // 使用條款 & 須知
+        public string? UsageRequirements { get; set; }
+        public string? UsageTerms { get; set; }
     }
 }

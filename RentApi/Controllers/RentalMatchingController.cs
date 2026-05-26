@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RentApi.Interfaces;
 using RentApi.Models.DTO;
+using YourProjectNamespace.Dtos;
 
 namespace RentApi.Controllers
 {
@@ -10,6 +12,7 @@ namespace RentApi.Controllers
     [ApiController]
     public class RentalMatchingController : ControllerBase
     {
+        //private readonly AppDbContext _dbContext;
         private readonly IRentalMatchingService _rentalMatchingService;
 
         // 透過建構子注入剛剛寫好的 Service
@@ -78,6 +81,21 @@ namespace RentApi.Controllers
             var product = await _rentalMatchingService.GetProductByIdAsync(id);
             if (product == null) return NotFound();
             return Ok(product);
+        }
+
+        // 端點五：POST api/RentalMatching/search
+        [HttpPost("search")]
+        public async Task<IActionResult> SearchRentals([FromBody] RentalFilterRequestDto request)
+        {
+            try
+            {
+                var results = await _rentalMatchingService.SearchRentalsAsync(request);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"搜尋時發生錯誤：{ex.Message}");
+            }
         }
 
     }

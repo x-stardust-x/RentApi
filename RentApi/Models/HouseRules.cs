@@ -18,5 +18,6 @@ namespace RentApi.Models
         public bool? Smoke { get; set; } // 是否允許室內/陽台抽菸
 
         public string AdvancedRules { get; set; } = string.Empty;
+
     }
 }
