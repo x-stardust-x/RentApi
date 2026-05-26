@@ -11,8 +11,32 @@ namespace RentApi.Services {
             _db = db;
         }
 
-        public async Task<List<User>> GetAllAsync() {
-            return await _db.User.ToListAsync();
+        public async Task<List<UserDto>> GetAllAsync() {
+            var result = from u in _db.User
+                         join a in _db.Account
+                         on u.AccountId equals a.Id into gj
+                         from a in gj.DefaultIfEmpty()
+                         select new UserDto {
+                             Id = u.Id,
+                             AccountId = u.AccountId,
+                             RealName = u.RealName,
+                             EnglishName = u.EnglishName,
+                             Avatar = u.Avatar,
+                             Address = u.Address,
+                             Phone = u.Phone,
+                             Bio = u.Bio,
+                             Rating = u.Rating,
+                             ReviewCount = u.ReviewCount,
+                             CreateAt = u.CreateAt,
+
+                             Age = a != null ? a.Age : 0,
+                             Identity = a != null ? a.Identity : Identity.young,
+                             Status = a != null && a.Status,
+                             IsDelete = a != null && a.IsDelete,
+                             LastLoginAt = a != null ? a.LastLoginAt : null
+                         };
+
+            return await result.ToListAsync();
         }
 
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
@@ -80,6 +104,14 @@ namespace RentApi.Services {
 
             return dto;
         }
+        public Task<bool> ChangeStatusAsync(int userid) {
+            var res = _db.Account.FirstOrDefault(x => x.Id == userid);
+            if (res == null) {
+                return Task.FromResult(false);
+            }
+            res.Status = !res.Status;
+            _db.SaveChanges();
+            return Task.FromResult(true);
 
 
         public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)

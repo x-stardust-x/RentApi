@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RentApi.Data;
 using RentApi.Models;
+using RentApi.Models.DTO;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -30,11 +31,16 @@ namespace RentApi.Controllers {
 
         // POST api/<AdminController>
         [HttpPost]
-        public IActionResult Post([FromBody] Admin admin) {
+        public IActionResult Post([FromBody] AdminDto admin) {
             if (admin == null)
                 return BadRequest();
-            admin.Pwd = "0000";
-            _context.Admin.Add(admin);
+            Admin admin1 = new Admin {
+                Username = admin.Username,
+                Pwd = admin.Pwd,
+                Email = admin.Email,
+                Phone = admin.Phone,
+            };
+            _context.Admin.Add(admin1);
             _context.SaveChanges();
             return Ok(admin);
         }
@@ -57,9 +63,7 @@ namespace RentApi.Controllers {
         }
         //password reset
         [HttpPut("reset-password/{id}")]
-        public IActionResult ResetPassword(int id, [FromBody] Admin admin) {
-            if (admin == null || admin.Id != id)
-                return BadRequest();
+        public IActionResult ResetPassword(int id) {
             var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
             if (existingAdmin == null)
                 return NotFound();

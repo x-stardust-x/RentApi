@@ -39,6 +39,11 @@ namespace RentApi.Controllers {
                 return NotFound("User not found");
             return Ok(result);
         }
+        [HttpPut("/status/{userid}")]
+        public async Task<IActionResult> ChangeStatus(int userid) {
+            var result = await _service.ChangeStatusAsync(userid);
+            if (!result)
+                return NotFound("User not found");
 
         // 取得出租人公開個人檔案 (無論有沒有登入都能看)
         [AllowAnonymous]

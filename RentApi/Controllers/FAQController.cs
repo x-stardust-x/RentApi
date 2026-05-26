@@ -35,7 +35,7 @@ namespace RentApi.Controllers {
             }
             return Ok(faqItems);
         }
-        [HttpPost]
+        [HttpPost("FAQ_Items")]
         public async Task<IActionResult> CreateFAQItem(FAQDto item) {
             var faqItem = await _service.CreateFAQItemAsync(item);
             if (faqItem == null) {
@@ -43,7 +43,7 @@ namespace RentApi.Controllers {
             }
             return CreatedAtAction(nameof(GetFAQItems), new { id = faqItem.Id }, faqItem);
         }
-        [HttpPut("{id}")]
+        [HttpPut("FAQ_Items/{id}")]
         public async Task<IActionResult> UpdateFAQItem(int id, FAQDto item) {
             var faqItem = await _service.UpdateFAQItemAsync(id, item);
             if (faqItem == null) {
@@ -51,10 +51,12 @@ namespace RentApi.Controllers {
             }
             return Ok(faqItem);
         }
-        [HttpDelete("{id}")]
+        [HttpDelete("FAQ_Items/{id}")]
         public async Task<IActionResult> DeleteFAQItem(int id) {
             var result = await _service.DeleteFAQItemAsync(id);
-            return Ok(result);
+            return Ok(new {
+                message = result
+            });
         }
     }
 }

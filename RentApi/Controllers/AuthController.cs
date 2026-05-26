@@ -24,17 +24,6 @@ namespace RentApi.Controllers {
         }
         public record ApiResponse(string Message, bool IsSuccessful);
 
-        [HttpGet("getallmember")]
-        public IActionResult AllMember() {
-            var res = _db.Account;
-            return Ok(res);
-        }
-        [Authorize(Roles ="admin")]
-        [HttpGet("getalladmin")]
-        public IActionResult AllAdmin() {
-            var res = _db.Admin;
-            return Ok(res);
-        }
 
         [HttpPost("login/admin")]
         public IActionResult AdminLogin(LoginDto dto) {
@@ -156,6 +145,8 @@ namespace RentApi.Controllers {
                 //Nickname = dto.User.Nickname,
                 //Email = dto.User.Email,
                 //Address = dto.User.Address,
+                Rating = 0,
+                ReviewCount = 0,
                 CreateAt = DateTime.Now
             };
 
@@ -164,6 +155,13 @@ namespace RentApi.Controllers {
 
             var user_habit = new User_Habit {
                 UserId = user.Id,
+                SleepTime = new TimeOnly(22, 0),
+                WakeTime = new TimeOnly(6, 0),
+                CleanLevel = 0,
+                NoiseTolerance = 0,
+                Pet = false,
+                Smoke = false,
+                Interests = ""
             };
 
             _db.User_Habit.Add(user_habit);
