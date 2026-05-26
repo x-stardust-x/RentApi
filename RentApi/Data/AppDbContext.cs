@@ -28,6 +28,8 @@ namespace RentApi.Data
 
         public DbSet<ContactUs> ContactUs { get; set; }
 
+        public DbSet<HouseFacility> HouseFacilities { get; set; }
+        public DbSet<SystemFacility> SystemFacilities { get; set; }
 
         public DbSet<City> City { get; set; }
         public DbSet<Location_District> Location_District { get; set; }

@@ -2,8 +2,8 @@
     public class User_Habit {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public int? SleepTime { get; set; }
-        public int? WakeTime { get; set; }
+        public TimeOnly? SleepTime { get; set; }
+        public TimeOnly? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }

@@ -54,5 +54,8 @@ namespace RentApi.Models
         // 地址
         public string? Address { get; set; }
 
+        // 使用條款 & 須知
+        public string? UsageRequirements { get; set; }
+        public string? UsageTerms { get; set; }
     }
 }
