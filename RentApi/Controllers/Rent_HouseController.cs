@@ -61,8 +61,8 @@ namespace CoLiving.Controllers
                 CleanLevel = request.CleanLevel,
                 NoiseTolerance = request.NoiseTolerance,
                 Pet = request.Pet,
-                Smoke = request.Smoke
-
+                Smoke = request.Smoke,
+                AdvancedRules = ""
             };
 
             _context.HouseRules.Add(newRule);
@@ -103,6 +103,7 @@ namespace CoLiving.Controllers
                               NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
                               Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
                               Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
+                              AdvancedRules = "",
 
                               FloorInfo = h.FloorInfo,
                               IncludeUtilities = h.IncludeUtilities,
@@ -311,6 +312,7 @@ namespace CoLiving.Controllers
         public bool Pet { get; set; }
         public bool Smoke { get; set; }
         public string? Interests { get; set; }
+
 
 
     }
