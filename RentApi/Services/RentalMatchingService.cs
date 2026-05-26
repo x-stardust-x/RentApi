@@ -155,7 +155,7 @@ namespace RentApi.Services
             return houseResult;
         }
 
-        // 3. 抓取所有工具技能
+        // 3. 抓取所有工具技能 (前台探索大廳專用)
         public async Task<IEnumerable<Match_ProductDto>> GetProductAsync()
         {
             var query = from product in _context.Rent_Products
@@ -166,8 +166,8 @@ namespace RentApi.Services
                         join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
-                            // 🌟 核心升級：假設你的工具表也有 DistrictId 或者是 Address 反查，這裡先用 DistrictId 進行關聯
-                        
+                            // 🛑 終極防護牆：就是這行！沒有這行，未審核的犯人都會逃到前台！
+                        where product.IsOnline == true
 
                         select new Match_ProductDto
                         {

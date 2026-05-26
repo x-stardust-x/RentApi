@@ -16,5 +16,7 @@ namespace RentApi.Models
         public int? NoiseTolerance { get; set; } // 該環境對噪音的限制（1 ~ 5）
         public bool? Pet { get; set; } // 是否接受租客養寵物
         public bool? Smoke { get; set; } // 是否允許室內/陽台抽菸
+
+        public string AdvancedRules { get; set; } = string.Empty;
     }
 }
