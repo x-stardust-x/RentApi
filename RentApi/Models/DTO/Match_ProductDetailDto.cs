@@ -49,5 +49,11 @@
 
         // 真實名字
         public string? RealName { get; set; }
+
+        // 使用條款 & 須知
+        public string? UsageRequirements { get; set; }
+        public string? UsageTerms { get; set; }
+
+        
     }
 }

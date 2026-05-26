@@ -24,10 +24,13 @@ namespace RentApi.Data
 
         public DbSet<RentProduct> Rent_Products { get; set; }
 
+        public DbSet<ProductImage> Product_Image { get; set; }
         public DbSet<HouseRules> HouseRules { get; set; }
 
         public DbSet<ContactUs> ContactUs { get; set; }
 
+        public DbSet<HouseFacility> HouseFacilities { get; set; }
+        public DbSet<SystemFacility> SystemFacilities { get; set; }
 
         public DbSet<City> City { get; set; }
         public DbSet<Location_District> Location_District { get; set; }

@@ -66,8 +66,8 @@ namespace RentApi.Services {
                     DistrictName = d.DistrictName,
                     ZipCode = d.ZipCode,
 
-                    SleepTime = h != null ? h.SleepTime : 0,
-                    WakeTime = h != null ? h.WakeTime : 0,
+                    SleepTime = h != null && h.SleepTime != null ? h.SleepTime.Value.Hour : 0,
+                    WakeTime = h != null && h.WakeTime != null ? h.WakeTime.Value.Hour : 0,
                     CleanLevel = h != null ? h.CleanLevel : 0,
                     NoiseTolerance = h != null ? h.NoiseTolerance : 0,
                     Pet = h.Pet,
@@ -112,6 +112,67 @@ namespace RentApi.Services {
             res.Status = !res.Status;
             _db.SaveChanges();
             return Task.FromResult(true);
+
+
+        public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)
+        {
+            // 1. 撈取使用者基本資料 (將 _context 改為 _db，Users 改為 User)
+            var user = await _db.User.FirstOrDefaultAsync(u => u.AccountId == accountId);
+            if (user == null) return null;
+
+            // 2. 撈取生活習慣 (因為沒有導覽屬性，改用獨立查詢對接 UserId)
+            var habit = await _db.User_Habit.FirstOrDefaultAsync(h => h.UserId == user.Id);
+
+            // 3. 撈取該出租人目前上架中的房屋列表 (根據你的 Network 截圖，DbSet 名稱應為 RentHouse)
+            // 💡 備註：如果這行報錯，請去查看你們 AppDbContext 裡面的房屋表叫什麼名字
+            var activeHouses = await _db.Rent_Houses
+                .Where(h => h.AccountId == accountId && h.Status == 1)
+                .Select(h => new LessorPublicProfileDto.HouseDto
+                {
+                    Id = h.Id,
+                    Name = h.Name,
+                    RentPrice = Convert.ToInt32(h.RentPrice),
+                    //MainImageUrl = h.CoverImage ?? "assets/default-house.jpg"
+                })
+                .ToListAsync();
+
+            // 4. 計算加入年資 (防呆：若 User 表沒 CreatedAt 欄位可先寫死 1)
+            int joinYears = 1;
+
+            // 5. 處理 TimeOnly 轉 int 小時問題
+            int sleepHour = habit?.SleepTime?.Hour ?? 23; // 🟢 改用 .Hour 取得純數字小時 (0~23)
+            int wakeHour = habit?.WakeTime?.Hour ?? 7;    // 🟢 改用 .Hour
+
+            // 6. 打包成 DTO 回傳 (對應你 User 表的真實欄位名)
+            return new LessorPublicProfileDto
+            {
+                AccountId = accountId,
+                RealName = user.RealName ?? "",
+                Username = user.EnglishName ?? user.RealName ?? "",
+                AvatarUrl = user.Avatar ?? "assets/default-avatar.png", // 你的欄位叫 Avatar
+                BannerUrl = "assets/default-banner.jpg",
+                IsVerified = true,
+                Identity = 0,
+                ProfileTitle = "共享居住夥伴",
+                ProfileSubTitle = "",
+                Bio = user.Bio ?? "尚未填寫自我介紹",
+                //Rating = user.Rating,         // 使用你 User 表既有的 Rating
+                //ReviewCount = user.ReviewCount, // 使用你 User 表既有的 ReviewCount
+                JoinYears = joinYears,
+
+                // 生活習慣
+                Smoke = habit?.Smoke ?? false,
+                SleepTime = sleepHour,
+                WakeTime = wakeHour,
+                Pet = habit?.Pet ?? false,
+                NoiseTolerance = habit?.NoiseTolerance ?? 3,
+                Interests = habit?.Interests ?? "",
+
+                // 巢狀清單
+                ActiveHouses = activeHouses,
+                ActiveProducts = new List<LessorPublicProfileDto.ProductDto>(),
+                Reviews = new List<LessorPublicProfileDto.ReviewDto>()
+            };
         }
     }
 }
