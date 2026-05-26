@@ -44,6 +44,8 @@ namespace RentApi.Controllers {
             var result = await _service.ChangeStatusAsync(userid);
             if (!result)
                 return NotFound("User not found");
+            return Ok();
+        }
 
         // 取得出租人公開個人檔案 (無論有沒有登入都能看)
         [AllowAnonymous]
@@ -58,5 +60,4 @@ namespace RentApi.Controllers {
             return Ok(result);
         }
     }
-
 }

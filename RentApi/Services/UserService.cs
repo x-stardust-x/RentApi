@@ -112,6 +112,7 @@ namespace RentApi.Services {
             res.Status = !res.Status;
             _db.SaveChanges();
             return Task.FromResult(true);
+        }
 
 
         public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)
