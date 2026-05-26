@@ -155,8 +155,8 @@ namespace RentApi.Controllers {
 
             var user_habit = new User_Habit {
                 UserId = user.Id,
-                SleepTime = 0,
-                WakeTime = 0,
+                SleepTime = new TimeOnly(22, 0),
+                WakeTime = new TimeOnly(6, 0),
                 CleanLevel = 0,
                 NoiseTolerance = 0,
                 Pet = false,
