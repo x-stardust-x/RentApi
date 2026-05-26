@@ -15,7 +15,7 @@
 
 
 
-
+        public string? CoverUrl { get; set; }
 
         // 主鍵 ID（不允許 Null）
         public int Id { get; set; }

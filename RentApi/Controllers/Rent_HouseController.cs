@@ -62,8 +62,14 @@ namespace CoLiving.Controllers
                 NoiseTolerance = request.NoiseTolerance,
                 Pet = request.Pet,
                 Smoke = request.Smoke,
-                AdvancedRules = ""
-            };
+
+
+                
+
+                
+                AdvancedRules = request.AdvancedRules ?? string.Empty
+
+                        };
 
             _context.HouseRules.Add(newRule);
             _context.SaveChanges();
@@ -313,8 +319,9 @@ namespace CoLiving.Controllers
         public bool Smoke { get; set; }
         public string? Interests { get; set; }
 
+        public string AdvancedRules { get; set; } = string.Empty;
 
-
+        
     }
 
 

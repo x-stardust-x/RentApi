@@ -24,6 +24,7 @@ namespace RentApi.Data
 
         public DbSet<RentProduct> Rent_Products { get; set; }
 
+        public DbSet<ProductImage> Product_Image { get; set; }
         public DbSet<HouseRules> HouseRules { get; set; }
 
         public DbSet<ContactUs> ContactUs { get; set; }

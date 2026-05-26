@@ -70,7 +70,17 @@ namespace RentApi.Services
                             Smoke = rule != null ? rule.Smoke : null,
                             AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
-                            RealName = user != null ? user.RealName : "未知提供者"
+                            RealName = user != null ? user.RealName : "未知提供者",
+                            UserName = account != null ? account.Username : "未知提供者",
+                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                            Rating = user != null ? user.Rating : 0,
+                            ReviewCount = user != null ? user.ReviewCount : 0,
+
+                            // 🌟 補上封面圖片
+                            CoverUrl = _context.House_Images
+                                               .Where(img => img.HouseId == house.Id)
+                                               .Select(img => img.Url)
+                                               .FirstOrDefault()
                         };
 
             return await query.ToListAsync();
@@ -148,12 +158,13 @@ namespace RentApi.Services
                                            .ToListAsync();
 
                 houseResult.ImageUrls = images;
+                houseResult.CoverUrl = images.FirstOrDefault(); // 同時把第一張設為封面
             }
 
             return houseResult;
         }
 
-        // 3. 抓取所有工具技能
+        // 3. 抓取所有工具技能 (前台探索大廳專用)
         public async Task<IEnumerable<Match_ProductDto>> GetProductAsync()
         {
             var query = from product in _context.Rent_Products
@@ -164,6 +175,7 @@ namespace RentApi.Services
                         join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
+                        where product.IsOnline == true
                         select new Match_ProductDto
                         {
                             Id = product.Id,
@@ -193,6 +205,12 @@ namespace RentApi.Services
                             Rating = user != null ? user.Rating : 0,
                             ReviewCount = user != null ? user.ReviewCount : 0,
                             RealName = user != null ? user.RealName : "未知提供者",
+
+                            // 🌟 補上這段撈取圖片的邏輯
+                            CoverUrl = _context.Product_Image
+                                               .Where(img => img.ProductId == product.Id)
+                                               .Select(img => img.Url)
+                                               .FirstOrDefault()
                         };
 
             return await query.ToListAsync();
@@ -236,13 +254,18 @@ namespace RentApi.Services
                             Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
                             Rating = user != null ? user.Rating : 0,
                             ReviewCount = user != null ? user.ReviewCount : 0,
-                            RealName = user != null ? user.RealName : "未知提供者"
+                            RealName = user != null ? user.RealName : "未知提供者",
+
+                            CoverUrl = _context.Product_Image
+                                               .Where(img => img.ProductId == product.Id)
+                                               .Select(img => img.Url)
+                                               .FirstOrDefault(),
                         };
 
             return await query.FirstOrDefaultAsync();
         }
 
-        // 🌟 核心修正：全新重構的綜合篩選器功能
+        // 5. 🌟 核心修正：全新重構的綜合篩選器功能
         public async Task<IEnumerable<object>> SearchRentalsAsync(RentalFilterRequestDto request)
         {
             // 步驟 A：將前端傳入的英文城市代碼轉換為資料庫比對用的中文字串
@@ -274,17 +297,21 @@ namespace RentApi.Services
 
             var combinedList = new List<object>();
 
-            // 步驟 B：【房屋搜尋分支】當分類為 "all" 或 "room" 時執行
             // 步驟 B：🏠 房屋搜尋分支
             if (request.Category == "all" || request.Category == "room")
             {
+                // 🌟 修正：把 account 和 user 給 join 回來
                 var houseQuery = from house in _context.Rent_Houses
                                  join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
                                  from rule in rules.DefaultIfEmpty()
                                  join loc in _context.Location_Districts on house.DistrictId equals loc.DistrictId into locations
                                  from loc in locations.DefaultIfEmpty()
+                                 join account in _context.Account on house.AccountId equals account.Id into accounts
+                                 from account in accounts.DefaultIfEmpty()
+                                 join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
+                                 from user in users.DefaultIfEmpty()
                                  where house.Status == 1
-                                 select new { house, rule, loc };
+                                 select new { house, rule, loc, account, user };
 
                 // 1. 價格防線
                 houseQuery = houseQuery.Where(x => x.house.RentPrice >= (int)request.PriceMin && x.house.RentPrice <= (int)request.PriceMax);
@@ -295,28 +322,21 @@ namespace RentApi.Services
                     houseQuery = houseQuery.Where(x => x.house.Address.Contains(cityNameKeyword) || x.loc.CityName.Contains(cityNameKeyword));
                 }
 
-
-                // ==========================================
-                // 🎯 修正後：進階條件完整過濾邏輯
-                // 請將這段邏輯替換掉原本 SearchRentalsAsync 中 4~7 的所有內容
-                // ==========================================
-
-                // 幫助方法：建立一個簡單的過濾器，確保若前端有勾選，就加入查詢
+                // 幫助方法：建立一個簡單的過濾器
                 void ApplyAdvancedFilter(List<string> requestList, string filterName)
                 {
                     if (requestList != null && requestList.Any())
                     {
                         foreach (var item in requestList)
                         {
-                            // 使用 Contains 進行模糊比對 (前提是資料庫的 AdvancedRules 字串中包含該關鍵字)
                             houseQuery = houseQuery.Where(x => x.rule != null &&
-                                                              x.rule.AdvancedRules != null &&
-                                                              x.rule.AdvancedRules.Contains(item));
+                                                               x.rule.AdvancedRules != null &&
+                                                               x.rule.AdvancedRules.Contains(item));
                         }
                     }
                 }
 
-                // 1. 生活風格 (Existing)
+                // 1. 生活風格
                 if (request.LifeStyle != null && request.LifeStyle.Any())
                 {
                     var lifestyles = request.LifeStyle.Select(l => l.Trim()).ToList();
@@ -332,119 +352,18 @@ namespace RentApi.Services
                     if (request.Routines.Contains("夜貓子")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime >= new TimeOnly(23, 0));
                 }
 
-                // 3. 通用進階條件 (使用剛剛定義的輔助方法，簡潔處理)
+                // 3. 通用進階條件
                 ApplyAdvancedFilter(request.ShowerRestrictions, "ShowerRestrictions");
                 ApplyAdvancedFilter(request.VisitorPolicies, "VisitorPolicies");
                 ApplyAdvancedFilter(request.CookingHabits, "CookingHabits");
                 ApplyAdvancedFilter(request.FridgeAllocations, "FridgeAllocations");
                 ApplyAdvancedFilter(request.InteractionFrequencies, "InteractionFrequencies");
 
-                // 注意：如果你的資料庫欄位名稱不叫 AdvancedRules，或者你將這些資訊分開存在不同欄位，
-                // 請記得調整上面的 ApplyAdvancedFilter 邏輯。
-
-
-
-
-                // ==========================================
-                // 🎯 核心修正：生活風格與進階條件強固化
-                // ==========================================
-
-
-                //// 3. 生活風格篩選 (對應前端 lifeStyle 陣列)
-                //if (request.LifeStyle != null && request.LifeStyle.Any())
-                //{
-                //    var lifestyles = request.LifeStyle.Select(l => l.Trim()).ToList();
-
-                //    // 禁菸：假設資料庫 Smoke 是 bool (true 代表可抽，false 代表禁菸，或依你實作調整)
-                //    if (lifestyles.Contains("禁菸"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Smoke == false);
-                //    }
-
-                //    // 寵物：放行可養寵物的房源
-                //    if (lifestyles.Contains("可養寵物"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Pet == true);
-                //    }
-
-                //    // 安靜：利用資料庫現有的 NoiseTolerance (噪音容忍度越低，代表越怕吵、越要求安靜環境)
-                //    if (lifestyles.Contains("追求安靜"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.NoiseTolerance <= 2);
-                //    }
-                //}
-
-                //// 4. 作息型態篩選 (對應前端 routines 陣列)
-                //if (request.Routines != null && request.Routines.Any())
-                //{
-                //    var routines = request.Routines.Select(r => r.Trim()).ToList();
-
-                //    if (routines.Contains("早睡早起"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime <= new TimeOnly(23, 0));
-                //    }
-                //    if (routines.Contains("夜貓子"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime >= new TimeOnly(23, 0));
-                //    }
-                //}
-
-                //// 5. 深夜限制篩選 (對應前端 showerRestrictions 陣列，統一由資料庫的 AdvancedRules 文字欄位作模糊搜尋)
-                //if (request.ShowerRestrictions != null && request.ShowerRestrictions.Any())
-                //{
-                //    var restrictions = request.ShowerRestrictions.Select(s => s.Trim()).ToList();
-
-                //    if (restrictions.Contains("深夜禁止洗澡"))
-                //    {
-                //        // 既然資料表沒有 LimitBath 欄位，我們就直接全面檢索 AdvancedRules 備註字串
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.AdvancedRules.Contains("洗澡"));
-                //    }
-                //    if (restrictions.Contains("深夜禁止洗衣"))
-                //    {
-                //        // 直接全面檢索 AdvancedRules 備註字串
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.AdvancedRules.Contains("洗衣"));
-                //    }
-                //}
-
-                //// 6. 進階條件：作息型態 (避免 Contains 陣列比對失敗，改用明確的欄位或字串清單處理)
-                //if (request.Routines != null && request.Routines.Any())
-                //{
-                //    // 轉成小寫或統一清理字串，防止前後端字串對不上
-                //    var routines = request.Routines.Select(r => r.Trim()).ToList();
-
-                //    if (routines.Contains("早睡早起"))
-                //    {
-                //        // 23:00 前睡覺視為早睡
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime <= new TimeOnly(23, 0));
-                //    }
-                //    if (routines.Contains("夜貓子"))
-                //    {
-                //        // 23:00 後睡覺視為夜貓
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime >= new TimeOnly(23, 0));
-                //    }
-                //}
-
-                //// 7. 進階條件：深夜限制
-                //if (request.AdvancedRules != null && request.AdvancedRules.Any())
-                //{
-                //    var advanced = request.AdvancedRules.Select(a => a.Trim()).ToList();
-
-                //    if (advanced.Contains("深夜禁止洗澡"))
-                //    {
-                //        // 確保 AdvancedRules 欄位是 string，我們用 Contains 進行資料庫層級模糊搜尋
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.AdvancedRules != null && x.rule.AdvancedRules.Contains("洗澡"));
-                //    }
-                //    if (advanced.Contains("深夜禁止洗衣"))
-                //    {
-                //        houseQuery = houseQuery.Where(x => x.rule != null && x.rule.AdvancedRules != null && x.rule.AdvancedRules.Contains("洗衣"));
-                //    }
-                //}
-
-                // ==========================================
-
+                // 🌟 修正：補齊前端所有需要的欄位與照片
                 var houseResults = await houseQuery.Select(x => new
                 {
                     Id = x.house.Id,
+                    AccountId = x.house.AccountId,
                     Name = x.house.Name,
                     Address = x.house.Address,
                     RentPrice = x.house.RentPrice,
@@ -452,6 +371,14 @@ namespace RentApi.Services
                     Status = x.house.Status,
                     CityName = x.loc != null ? x.loc.CityName : "未知縣市",
                     DistrictName = x.loc != null ? x.loc.DistrictName : "未知區域",
+
+                    UserName = x.account != null ? x.account.Username : "未知提供者",
+                    Bio = x.user != null ? x.user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = x.user != null ? x.user.Rating : 0,
+
+                    // 補上封面圖片
+                    CoverUrl = _context.House_Images.Where(img => img.HouseId == x.house.Id).Select(img => img.Url).FirstOrDefault(),
+
                     HouseId = x.house.Id,
                     SleepTime = x.rule != null ? x.rule.SleepTime : null,
                     WakeTime = x.rule != null ? x.rule.WakeTime : null,
@@ -468,36 +395,51 @@ namespace RentApi.Services
             // 步驟 C：🛠️ 工具技能搜尋分支
             if (request.Category == "all" || request.Category == "product")
             {
-                var productQuery = _context.Rent_Products.AsQueryable();
+                // 🌟 修正：把 account 和 user 給 join 回來
+                var productQuery = from product in _context.Rent_Products
+                                   join account in _context.Account on product.AccountId equals account.Id into accounts
+                                   from account in accounts.DefaultIfEmpty()
+                                   join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
+                                   from user in users.DefaultIfEmpty()
+                                   where product.IsOnline == true
+                                   select new { product, account, user };
 
                 // 1. 工具價格範圍篩選
-                productQuery = productQuery.Where(x => x.Price >= request.PriceMin && x.Price <= request.PriceMax);
+                productQuery = productQuery.Where(x => x.product.Price >= request.PriceMin && x.product.Price <= request.PriceMax);
 
-                // 2. 工具縣市地址模糊篩選 (直接對欄位進行字串模糊搜尋)
+                // 2. 工具縣市地址模糊篩選
                 if (!string.IsNullOrEmpty(cityNameKeyword))
                 {
-                    productQuery = productQuery.Where(x => x.Address != null && x.Address.Contains(cityNameKeyword));
+                    productQuery = productQuery.Where(x => x.product.Address != null && x.product.Address.Contains(cityNameKeyword));
                 }
 
+                // 🌟 修正：補齊前端所有需要的欄位與照片
                 var productResults = await productQuery.Select(x => new
                 {
-                    Id = x.Id,
-                    AccountId = x.AccountId,
-                    Name = x.Name,
-                    Category = x.Category,
-                    Description = x.Description,
-                    Price = x.Price,
-                    PriceUnit = x.PriceUnit,
-                    Deposit = x.Deposit,
-                    IsOnline = x.IsOnline,
-                    Quantity = x.Quantity,
-                    OwnTool = x.OwnTool,
-                    RequiredKnowledge = x.RequiredKnowledge,
-                    Address = x.Address,
-                    UsageRequirements = x.UsageRequirements,
-                    UsageTerms = x.UsageTerms,
-                    CityName = "", // 工具表無關聯則維持空字串
-                    DistrictName = ""
+                    Id = x.product.Id,
+                    AccountId = x.product.AccountId,
+                    Name = x.product.Name,
+                    Category = x.product.Category,
+                    Description = x.product.Description,
+                    Price = x.product.Price,
+                    PriceUnit = x.product.PriceUnit,
+                    Deposit = x.product.Deposit,
+                    IsOnline = x.product.IsOnline,
+                    Quantity = x.product.Quantity,
+                    OwnTool = x.product.OwnTool,
+                    RequiredKnowledge = x.product.RequiredKnowledge,
+                    Address = x.product.Address,
+                    UsageRequirements = x.product.UsageRequirements,
+                    UsageTerms = x.product.UsageTerms,
+                    CityName = "",
+                    DistrictName = "",
+
+                    UserName = x.account != null ? x.account.Username : "未知提供者",
+                    Bio = x.user != null ? x.user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = x.user != null ? x.user.Rating : 0,
+
+                    // 補上封面圖片
+                    CoverUrl = _context.Product_Image.Where(img => img.ProductId == x.product.Id).Select(img => img.Url).FirstOrDefault()
                 }).ToListAsync();
 
                 combinedList.AddRange(productResults);

@@ -55,6 +55,8 @@
         // 真實名字
         public string? RealName { get; set; }
 
+        public string? CoverUrl { get; set; }
+
 
         #endregion
 
