@@ -118,54 +118,67 @@ namespace RentApi.Controllers {
             });
         }
         [HttpPost("register")]
-        public IActionResult Register(RegisterDto dto) {
+        public async Task<IActionResult> Register(RegisterDto dto) {
             // 🔥 1. 檢查帳號是否存在
             var exist = _db.Account.Any(x => x.Email == dto.Account.Email);
+
             if (exist)
                 return BadRequest(new { message = "帳號已存在" });
 
             string hashedPwd = PasswordHelper.Hash(dto.Account.Pwd);
 
-            // 🔥 2. 建立 Account
-            var account = new Account {
-                Username = dto.Account.Username,
-                Pwd = hashedPwd, // 存哈希後的密碼
-                Email = dto.Account.Email,
-                Birthday = dto.Account.Birthday,
-                Age = dto.Account.Age,
-                Identity = (Identity)dto.Account.Identity,
-            };
+            using var transaction = _db.Database.BeginTransaction();
 
-            _db.Account.Add(account);
-            _db.SaveChanges(); // 先存才能拿 Id
+            try {
+                var account = new Account {
+                    Username = dto.Account.Username,
+                    Pwd = hashedPwd, // 存哈希後的密碼
+                    Email = dto.Account.Email,
+                    Birthday = dto.Account.Birthday,
+                    Age = dto.Account.Age,
+                    Identity = (Identity)dto.Account.Identity,
+                };
+                _db.Account.Add(account);
+                await _db.SaveChangesAsync(); // 先存才能拿 Id
 
-            // 🔥 3. 建立 User
-            var user = new User {
-                AccountId = account.Id,
-                //Nickname = dto.User.Nickname,
-                //Email = dto.User.Email,
-                //Address = dto.User.Address,
-                Rating = 0,
-                ReviewCount = 0,
-                CreateAt = DateTime.Now
-            };
+                // 🔥 2. 建立 Account
+                var user = new User {
+                    AccountId = account.Id,
+                    //Nickname = dto.User.Nickname,
+                    //Email = dto.User.Email,
+                    //Address = dto.User.Address,
+                    Rating = 0,
+                    ReviewCount = 0,
+                    CreateAt = DateTime.Now
+                };
 
-            _db.User.Add(user);
-            _db.SaveChanges();
+                _db.User.Add(user);
+                await _db.SaveChangesAsync();
 
-            var user_habit = new User_Habit {
-                UserId = user.Id,
-                SleepTime = new TimeOnly(22, 0),
-                WakeTime = new TimeOnly(6, 0),
-                CleanLevel = 0,
-                NoiseTolerance = 0,
-                Pet = false,
-                Smoke = false,
-                Interests = ""
-            };
+                // 🔥 3. 建立 User
+                var user_habit = new User_Habit {
+                    UserId = user.Id,
+                    SleepTime = new TimeOnly(22, 0),
+                    WakeTime = new TimeOnly(6, 0),
+                    CleanLevel = 0,
+                    NoiseTolerance = 0,
+                    Pet = false,
+                    Smoke = false,
+                    Interests = ""
+                };
 
-            _db.User_Habit.Add(user_habit);
-            _db.SaveChanges();
+                _db.User_Habit.Add(user_habit);
+                await _db.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception err) {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new {
+                    message = "註冊失敗",
+                    error = err
+                });
+            }
 
             return Ok(new {
                 message = "註冊成功"
