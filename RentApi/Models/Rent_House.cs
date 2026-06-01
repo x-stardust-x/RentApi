@@ -1,17 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using RentApi.Models;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CoLiving.models
+namespace RentApi.Models
 {
     [Table("Rent_House")]
     public class Rent_House
     {
 
-
         [Key]
         public int Id { get; set; }
 
-        
+
         public int? AccountId { get; set; }
         public int? DistrictId { get; set; }
 
@@ -36,6 +36,10 @@ namespace CoLiving.models
         public int? ViewCount { get; set; }
 
         public int Status { get; set; }
+
+        // 明確告訴 EF Core：這個集合，對應到 HouseViewing 類別裡的 "RentHouse" 屬性
+        [InverseProperty("RentHouse")]
+        public virtual ICollection<HouseViewing> HouseViewings { get; set; } = new List<HouseViewing>();
 
     }
 }
