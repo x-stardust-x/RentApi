@@ -100,6 +100,7 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, iden),
+                    new Claim("AccountId", user.AccountId.ToString()),
                     new Claim("UserId", user.Id.ToString())
                 };
             var token = new JwtSecurityToken(
@@ -139,11 +140,11 @@ namespace RentApi.Controllers {
                     Identity = (Identity)dto.Account.Identity,
                 };
                 _db.Account.Add(account);
-                await _db.SaveChangesAsync(); // 先存才能拿 Id
 
                 // 🔥 2. 建立 Account
                 var user = new User {
-                    AccountId = account.Id,
+                    Account = account,
+                    DistrictId = 1, //防止error
                     //Nickname = dto.User.Nickname,
                     //Email = dto.User.Email,
                     //Address = dto.User.Address,
@@ -153,11 +154,10 @@ namespace RentApi.Controllers {
                 };
 
                 _db.User.Add(user);
-                await _db.SaveChangesAsync();
 
                 // 🔥 3. 建立 User
                 var user_habit = new User_Habit {
-                    UserId = user.Id,
+                    User = user,
                     SleepTime = new TimeOnly(22, 0),
                     WakeTime = new TimeOnly(6, 0),
                     CleanLevel = 0,
@@ -168,6 +168,7 @@ namespace RentApi.Controllers {
                 };
 
                 _db.User_Habit.Add(user_habit);
+
                 await _db.SaveChangesAsync();
 
                 await transaction.CommitAsync();
