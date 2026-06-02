@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using RentApi.Models;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CoLiving.models
@@ -36,6 +37,9 @@ namespace CoLiving.models
         public int? ViewCount { get; set; }
 
         public int Status { get; set; }
+
+        [ForeignKey("HouseId")]
+        public virtual ICollection<HouseImage> HouseImages { get; set; } = new List<HouseImage>();
 
     }
 }

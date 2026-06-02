@@ -175,7 +175,7 @@ namespace RentApi.Services
                         join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
-                        where product.IsOnline == true
+                        where product.Status == 1
                         select new Match_ProductDto
                         {
                             Id = product.Id,
@@ -187,7 +187,7 @@ namespace RentApi.Services
                             Price = product.Price,
                             PriceUnit = product.PriceUnit,
                             Deposit = product.Deposit,
-                            IsOnline = product.IsOnline,
+                            Status = product.Status,
                             Quantity = product.Quantity,
                             CreatedAt = product.CreatedAt,
                             UpdatedAt = product.UpdatedAt,
@@ -239,7 +239,7 @@ namespace RentApi.Services
                             Price = product.Price,
                             PriceUnit = product.PriceUnit,
                             Deposit = product.Deposit,
-                            IsOnline = product.IsOnline,
+                            Status = product.Status,
                             Quantity = product.Quantity,
                             OwnTool = product.OwnTool,
                             RequiredKnowledge = product.RequiredKnowledge,
@@ -401,7 +401,7 @@ namespace RentApi.Services
                                    from account in accounts.DefaultIfEmpty()
                                    join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                                    from user in users.DefaultIfEmpty()
-                                   where product.IsOnline == true
+                                   where product.Status == 1
                                    select new { product, account, user };
 
                 // 1. 工具價格範圍篩選
@@ -424,7 +424,7 @@ namespace RentApi.Services
                     Price = x.product.Price,
                     PriceUnit = x.product.PriceUnit,
                     Deposit = x.product.Deposit,
-                    IsOnline = x.product.IsOnline,
+                    Status = x.product.Status,
                     Quantity = x.product.Quantity,
                     OwnTool = x.product.OwnTool,
                     RequiredKnowledge = x.product.RequiredKnowledge,
