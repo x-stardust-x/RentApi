@@ -39,11 +39,20 @@ namespace RentApi.Controllers {
                 return NotFound("User not found");
             return Ok(result);
         }
-        [HttpPut("/status/{userid}")]
+        [HttpPut("status/{userid}")]
         public async Task<IActionResult> ChangeStatus(int userid) {
             var result = await _service.ChangeStatusAsync(userid);
             if (!result)
                 return NotFound("User not found");
+            return Ok();
+        }
+
+        [HttpPut("delete/{userid}")]
+        public async Task<IActionResult> DeleteUser(int userid) {
+            var result = await _service.DeleteUserAsync(userid);
+            if (!result) {
+                return NotFound("User not found");
+            }
             return Ok();
         }
 

@@ -115,6 +115,15 @@ namespace RentApi.Services {
             return Task.FromResult(true);
         }
 
+        public Task<bool> DeleteUserAsync(int userid) {
+            var res = _db.Account.FirstOrDefault(x => x.Id == userid);
+            if(res == null) {
+                return Task.FromResult(false);
+            }
+            res.IsDelete = true;
+            _db.SaveChanges();
+            return Task.FromResult(true);
+        }
 
         public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)
         {

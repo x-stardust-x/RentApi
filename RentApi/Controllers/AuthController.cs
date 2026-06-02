@@ -51,7 +51,7 @@ namespace RentApi.Controllers {
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(360),
+                    expires: DateTime.UtcNow.AddHours(1),
                     signingCredentials: creds
                 );
 
@@ -105,7 +105,7 @@ namespace RentApi.Controllers {
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(360),
+                    expires: DateTime.UtcNow.AddHours(1),
                     signingCredentials: creds
                 );
 
@@ -138,6 +138,7 @@ namespace RentApi.Controllers {
                     Birthday = dto.Account.Birthday,
                     Age = dto.Account.Age,
                     Identity = (Identity)dto.Account.Identity,
+                    Status = true
                 };
                 _db.Account.Add(account);
 
