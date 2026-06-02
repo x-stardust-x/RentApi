@@ -1,5 +1,4 @@
-﻿using CoLiving.models;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
@@ -147,9 +146,11 @@ namespace RentApi.Controllers
         }
 
         // 3. 取得單一房屋詳細資料
-        [HttpGet("{id:int}")] 
+        [HttpGet("{id:int}")]
         public IActionResult GetHouseById(int id)
+        {
             var houseDetail = _context.Rent_Houses
+                .Include(h => h.HouseImages)
                 .Where(h => h.Id == id)
                 .Select(h => new
                 {
@@ -169,10 +170,10 @@ namespace RentApi.Controllers
                     HouseType = h.HouseType,
                     Status = h.Status,
 
-                    // 💡 關鍵新增：提供前端預約時需要的真實 LessorId 
-                    // (這裡預設使用 AccountId 作為房東的 ID，請依據你實際資料庫設定微調)
+                    // 保留房屋圖片資料
+                    HouseImages = h.HouseImages,
 
-                    //LessorId = h.AccountId
+                    // 提供前端預約時需要的真實 LessorId
                     LessorId = _context.User
                         .Where(u => u.AccountId == h.AccountId)
                         .Select(u => u.Id)
@@ -183,13 +184,6 @@ namespace RentApi.Controllers
             if (houseDetail == null) return NotFound("找不到這間房子喔！");
 
             return Ok(houseDetail);
-            var house = _context.Rent_Houses
-                        .Include(h => h.HouseImages) 
-                        .FirstOrDefault(h => h.Id == id);
-
-            if (house == null) return NotFound("找不到這間房子喔！");
-            return Ok(house);
-            return Ok(house);
         }
 
         //  4. 修改房屋資料 
@@ -216,7 +210,7 @@ namespace RentApi.Controllers
             house.HouseType = request.HouseType;
             house.Status = request.Status;
 
-            house.Status = 0;
+            //house.Status = 0;
 
             _context.SaveChanges();
             return Ok(new { Message = "房屋資料更新成功！", HouseData = house });
@@ -251,10 +245,10 @@ namespace RentApi.Controllers
         // 獲取所有行政區選單的 API
         [HttpGet("Districts")]
         public IActionResult GetDistricts()
+        {
             var districts = _context.Location_Districts
-            var districts = _context.Location_Districts 
-            var districts = _context.Location_District
-                .Select(d => new {
+                .Select(d => new
+                {
                     DistrictId = d.DistrictId,
                     CityName = d.CityName,
                     DistrictName = d.DistrictName
@@ -262,13 +256,11 @@ namespace RentApi.Controllers
                 .ToList();
 
             return Ok(districts);
+        }
 
-        // 🗑️ 5. 刪除房屋
-        [HttpDelete("{id}")]
 
         //  5. 刪除房屋
         [HttpDelete("{id:int}")]
-        [HttpDelete("{id}")]
         public IActionResult RejectHouse(int id)
         {
             var house = _context.Rent_Houses.Find(id);
@@ -389,7 +381,7 @@ public class CreateHouseDto
 
         public string AdvancedRules { get; set; } = string.Empty;
     }
-}
+//}
 
 
 
@@ -720,4 +712,3 @@ public class CreateHouseDto
 
 //    }
 
-}
