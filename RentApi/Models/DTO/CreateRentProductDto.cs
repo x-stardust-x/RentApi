@@ -9,7 +9,7 @@
         public int? Price { get; set; }
         public string? PriceUnit { get; set; }
         public int? Deposit { get; set; }
-        public bool? IsOnline { get; set; }
+        public int Status { get; set; } = 0;
         public int? Quantity { get; set; }
         public string? OwnTool { get; set; }
         public string? RequiredKnowledge { get; set; }

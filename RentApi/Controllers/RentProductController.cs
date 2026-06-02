@@ -26,7 +26,7 @@ namespace CoLiving.Controllers
         public IActionResult GetAllProducts()
         {
             var products = _context.Rent_Products
-                .Where(p => p.IsOnline == true) // 前台只看得到已上架的
+                .Where(p => p.Status == 1) // 前台只看得到已上架的
                 .Select(p => new
                 {
                     p.Id,
@@ -35,7 +35,7 @@ namespace CoLiving.Controllers
                     p.Category,
                     p.Price,
                     p.PriceUnit,
-                    p.IsOnline,
+                    p.Status,
                     p.Quantity,
                     p.CreatedAt
                 }).ToList();
@@ -59,23 +59,13 @@ namespace CoLiving.Controllers
                               p.PriceUnit,
                               p.Description,
                               p.Address,
-                              p.IsOnline, // 🌟 前端過濾就靠這個！
+                              p.Status, // 🌟 前端過濾就靠這個！
                               CoverUrl = _context.Product_Image.Where(img => img.ProductId == p.Id && img.IsCover).Select(img => img.Url).FirstOrDefault()
                           }).ToList();
             return Ok(result);
         }
 
-        // ==========================================
-        // 🔍 2. 查詢單筆詳細資料 (Read One)
-        // ==========================================
-        [HttpGet("{id}")]
-        public IActionResult GetProductById(int id)
-        {
-            var product = _context.Rent_Products.Find(id);
-            if (product == null) return NotFound("找不到該項資產或技能！");
-            return Ok(product);
-        }
-
+        
         // ==========================================
         // ✨ 3. 新增 (Create)
         // ==========================================
@@ -93,7 +83,7 @@ namespace CoLiving.Controllers
                 Price = request.Price,
                 PriceUnit = request.PriceUnit,
                 Deposit = request.Deposit,
-                IsOnline = false,
+                Status = 0,
                 Quantity = request.Quantity,
                 OwnTool = request.OwnTool,
                 RequiredKnowledge = request.RequiredKnowledge,
@@ -123,7 +113,7 @@ namespace CoLiving.Controllers
             product.Price = request.Price;
             product.PriceUnit = request.PriceUnit;
             product.Deposit = request.Deposit;
-            product.IsOnline = request.IsOnline;
+            product.Status = request.Status;
             product.Quantity = request.Quantity;
             product.OwnTool = request.OwnTool;
             product.RequiredKnowledge = request.RequiredKnowledge;
@@ -140,11 +130,24 @@ namespace CoLiving.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteProduct(int id)
         {
+
+            var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
+
+
+            if (relatedImages.Any())
+            {
+                _context.Product_Image.RemoveRange(relatedImages);
+            }
+
+
             var product = _context.Rent_Products.Find(id);
             if (product == null) return NotFound("找不到要刪除的資料！");
 
             _context.Rent_Products.Remove(product);
+
+
             _context.SaveChanges();
+
             return Ok(new { Message = "資料已成功刪除！" });
         }
 
@@ -201,25 +204,82 @@ namespace CoLiving.Controllers
         // 🛠️ 資產 / 技能 審核與下架專區
         // ==========================================
         [HttpPut("Approve/{id}")]
-        public IActionResult ApproveProductStatus(int id)
+
+        public async Task<IActionResult> ApproveProductStatus(int id)
         {
-            var product = _context.Rent_Products.Find(id);
+            var product = await _context.Rent_Products.FindAsync(id);
             if (product == null) return NotFound("找不到這個資產/技能喔！");
 
-            product.IsOnline = true; // 核准上架
-            _context.SaveChanges();
+            product.Status = 1;
+            await _context.SaveChangesAsync();
             return Ok(new { Message = "資產/技能核准成功！" });
         }
 
-        [HttpPut("TakeDown/{id}")]
-        public IActionResult TakeDownProductStatus(int id)
-        {
-            var product = _context.Rent_Products.Find(id);
-            if (product == null) return NotFound("找不到這個資產/技能喔！");
 
-            product.IsOnline = false; // 退回或強制下架
-            _context.SaveChanges();
-            return Ok(new { Message = "資產/技能已強制下架！" });
+        [HttpDelete("TakeDown/{id}")]
+        public async Task<IActionResult> TakeDownProductStatus(int id)
+        {
+            try
+            {
+                var product = await _context.Rent_Products.FindAsync(id);
+                if (product == null)
+                    return NotFound(new { Message = "找不到這個資產/技能喔！" });
+
+
+                var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
+                if (relatedImages.Any())
+                {
+                    _context.Product_Image.RemoveRange(relatedImages);
+                }
+
+
+                _context.Rent_Products.Remove(product);
+
+                await _context.SaveChangesAsync();
+                return Ok(new { Message = "資產/技能已徹底刪除！" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "系統發生錯誤，請稍後再試。", Details = ex.Message });
+            }
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetProductById(int id)
+        {
+           
+            var product = _context.Rent_Products
+                                  .Include(p => p.ProductImages) 
+                                  .FirstOrDefault(p => p.Id == id);
+
+            if (product == null) return NotFound("找不到該項資產或技能！");
+
+            return Ok(product);
+        }
+
+        [HttpGet("User/{accountId:int}")]
+        public IActionResult GetProductsByAccountId(int accountId)
+        {
+            var products = (from p in _context.Rent_Products
+                            where p.AccountId == accountId
+                            select new
+                            {
+                                p.Id,
+                                p.Name,
+                                p.Category,
+                                p.Price,
+                                p.PriceUnit,
+                                p.Description,
+                                p.Address,
+                                p.Status,
+                                // 🌟 直接幫你把首圖網址找出來，方便前端卡片顯示！
+                                CoverUrl = _context.Product_Image
+                                            .Where(img => img.ProductId == p.Id && img.IsCover)
+                                            .Select(img => img.Url)
+                                            .FirstOrDefault()
+                            }).ToList();
+
+            return Ok(products);
         }
     }
 }
