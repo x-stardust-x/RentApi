@@ -37,6 +37,9 @@ namespace RentApi.Models
 
         public int Status { get; set; }
 
+        [ForeignKey("HouseId")]
+        public virtual ICollection<HouseImage> HouseImages { get; set; } = new List<HouseImage>();
+
         // 明確告訴 EF Core：這個集合，對應到 HouseViewing 類別裡的 "RentHouse" 屬性
         [InverseProperty("RentHouse")]
         public virtual ICollection<HouseViewing> HouseViewings { get; set; } = new List<HouseViewing>();

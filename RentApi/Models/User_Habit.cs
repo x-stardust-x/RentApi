@@ -9,5 +9,6 @@
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
+        public User User { get; set; }
     }
 }

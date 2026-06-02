@@ -1,11 +1,15 @@
 ﻿using CoLiving.models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace RentApi.Controllers
 {
@@ -72,9 +76,10 @@ namespace RentApi.Controllers
         {
             var result = (from h in _context.Rent_Houses
                           // 🎯 關鍵連動：利用 house 的 DistrictId 去關聯地點表！
+                              // 🎯 關鍵連動：利用 house 的 DistrictId 去關聯地點表！
+                              // 🎯 關鍵連動：利用 house 的 DistrictId 去關聯地點表！
                           join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locations
                           from loc in locations.DefaultIfEmpty()
-
                           select new
                           {
                               h.Id,
@@ -85,11 +90,9 @@ namespace RentApi.Controllers
                               h.AreaSize,
                               h.Status,
                               Description = h.Description,
-
                               // 🌟 實打實地把縣市與區域名稱抓出來，吐給前端審核與媒合頁面！
                               CityName = loc != null ? loc.CityName : "",
                               DistrictName = loc != null ? loc.DistrictName : "",
-
                               // 抓取生活公約
                               SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
                               WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
@@ -98,12 +101,10 @@ namespace RentApi.Controllers
                               Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
                               Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
                               AdvancedRules = "",
-
                               FloorInfo = h.FloorInfo,
                               IncludeUtilities = h.IncludeUtilities,
                               IncludeWifi = h.IncludeWifi,
                               IncludeManagememtFee = h.IncludeManagementFee,
-
                               // 📸 精準抓取照片關聯
                               CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
                               Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
@@ -112,10 +113,42 @@ namespace RentApi.Controllers
             return Ok(result);
         }
 
-        // 3. 取得單一房屋詳細資料
-        [HttpGet("{id}")]
-        public IActionResult GetHouseById(int id)
+        // 🌟 取得「我的房源」列表 (專屬房東)
+        [HttpGet("GetMyHouses")]
+        public IActionResult GetMyHouses()
         {
+            try
+            {
+                // int currentUserId = 1; 
+
+                var myHouses = (from h in _context.Rent_Houses
+                                // .Where(h => h.AccountId == currentUserId) // 👈 等你要測個人過濾時，把這行打開
+                                join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locations
+                                from loc in locations.DefaultIfEmpty()
+                                select new
+                                {
+                                    h.Id,
+                                    h.Name,
+                                    h.Address,
+                                    h.RentPrice,
+                                    h.Status,
+                                    CityName = loc != null ? loc.CityName : "",
+                                    DistrictName = loc != null ? loc.DistrictName : "",
+                                   
+                                    CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault()
+                                }).ToList();
+
+                return Ok(myHouses);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "系統發生錯誤", Details = ex.Message });
+            }
+        }
+
+        // 3. 取得單一房屋詳細資料
+        [HttpGet("{id:int}")] 
+        public IActionResult GetHouseById(int id)
             var houseDetail = _context.Rent_Houses
                 .Where(h => h.Id == id)
                 .Select(h => new
@@ -150,10 +183,17 @@ namespace RentApi.Controllers
             if (houseDetail == null) return NotFound("找不到這間房子喔！");
 
             return Ok(houseDetail);
+            var house = _context.Rent_Houses
+                        .Include(h => h.HouseImages) 
+                        .FirstOrDefault(h => h.Id == id);
+
+            if (house == null) return NotFound("找不到這間房子喔！");
+            return Ok(house);
+            return Ok(house);
         }
 
         //  4. 修改房屋資料 
-        [HttpPut("{id}")]
+        [HttpPut("{id:int}")] 
         public IActionResult UpdateHouse(int id, [FromBody] CreateHouseDto request)
         {
             var house = _context.Rent_Houses.Find(id);
@@ -166,7 +206,7 @@ namespace RentApi.Controllers
             house.Description = request.Description;
             house.RentPrice = request.RentPrice;
 
-            // 🆕 詳細設備與規格
+            //  詳細設備與規格
             house.IncludeUtilities = request.IncludeUtilities;
             house.IncludeWifi = request.IncludeWifi;
             house.IncludeManagementFee = request.IncludeManagementFee;
@@ -176,18 +216,19 @@ namespace RentApi.Controllers
             house.HouseType = request.HouseType;
             house.Status = request.Status;
 
+            house.Status = 0;
+
             _context.SaveChanges();
             return Ok(new { Message = "房屋資料更新成功！", HouseData = house });
         }
 
-        // ✅ 核准上架
-        [HttpPut("Approve/{id}")]
+        // 核准上架
+        [HttpPut("Approve/{id:int}")] 
         public IActionResult ApproveHouseStatus(int id)
         {
             var house = _context.Rent_Houses.Find(id);
             if (house == null) return NotFound("找不到這間房子喔！");
 
-            // 🌟 終極修正：核准上架必須是 1 ！
             house.Status = 1;
             _context.SaveChanges();
 
@@ -195,7 +236,7 @@ namespace RentApi.Controllers
         }
 
         // 強制下架 (將狀態改為 3)
-        [HttpPut("TakeDown/{id}")]
+        [HttpPut("TakeDown/{id:int}")] 
         public IActionResult TakeDownHouseStatus(int id)
         {
             var house = _context.Rent_Houses.Find(id);
@@ -210,8 +251,9 @@ namespace RentApi.Controllers
         // 獲取所有行政區選單的 API
         [HttpGet("Districts")]
         public IActionResult GetDistricts()
-        {
             var districts = _context.Location_Districts
+            var districts = _context.Location_Districts 
+            var districts = _context.Location_District
                 .Select(d => new {
                     DistrictId = d.DistrictId,
                     CityName = d.CityName,
@@ -220,9 +262,12 @@ namespace RentApi.Controllers
                 .ToList();
 
             return Ok(districts);
-        }
 
         // 🗑️ 5. 刪除房屋
+        [HttpDelete("{id}")]
+
+        //  5. 刪除房屋
+        [HttpDelete("{id:int}")]
         [HttpDelete("{id}")]
         public IActionResult RejectHouse(int id)
         {
@@ -247,10 +292,13 @@ namespace RentApi.Controllers
             return Ok(new { Message = "申請已成功退回，相關資料已刪除！" });
         }
 
-
         //==========================================
         // 🖼️ 圖片操作區 (維持原樣)
         // ==========================================
+
+       
+        //  圖片操作區 (維持原樣，補上防護網)
+       
 
         [HttpPost("Image/AddRecord")]
         public IActionResult AddImageRecord([FromBody] AddHouseImageDto request)
@@ -273,7 +321,7 @@ namespace RentApi.Controllers
             });
         }
 
-        [HttpPut("Image/{imageId}/SetCover")]
+        [HttpPut("Image/{imageId:int}/SetCover")] 
         public IActionResult SetCoverImage(int imageId)
         {
             var targetImage = _context.House_Images.Find(imageId);
@@ -287,7 +335,7 @@ namespace RentApi.Controllers
             return Ok(new { Message = "🎉 首圖設定成功！" });
         }
 
-        [HttpDelete("Image/{imageId}")]
+        [HttpDelete("Image/{imageId:int}")]
         public IActionResult DeleteImage(int imageId)
         {
             var image = _context.House_Images.Find(imageId);
@@ -303,11 +351,12 @@ namespace RentApi.Controllers
             return Ok(new { Message = "刪除成功！" });
         }
     }
+}
 
-    // ==========================================
-    // 📝 DTO 專區 (已同步最新資料表欄位)
-    // ==========================================
-    public class CreateHouseDto
+// ==========================================
+// 📝 DTO 專區 (已同步最新資料表欄位)
+// ==========================================
+public class CreateHouseDto
     {
         public int? AccountId { get; set; }
         public int? DistrictId { get; set; }
@@ -671,5 +720,4 @@ namespace RentApi.Controllers
 
 //    }
 
-
-//}
+}

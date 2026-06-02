@@ -42,7 +42,7 @@
         public int? Deposit { get; set; }
 
         // 是否上架 (bit -> bool)
-        public bool? IsOnline { get; set; }
+        public int Status { get; set; } = 0;
 
         // 數量 (int)
         public int? Quantity { get; set; }

@@ -66,8 +66,8 @@ namespace RentApi.Services {
                     DistrictName = d.DistrictName,
                     ZipCode = d.ZipCode,
 
-                    SleepTime = h != null && h.SleepTime != null ? h.SleepTime.Value.Hour : 0,
-                    WakeTime = h != null && h.WakeTime != null ? h.WakeTime.Value.Hour : 0,
+                    SleepTime = h != null && h.SleepTime != null ? h.SleepTime.Value : TimeOnly.MinValue,
+                    WakeTime = h != null && h.WakeTime != null ? h.WakeTime.Value : TimeOnly.MinValue,
                     CleanLevel = h != null ? h.CleanLevel : 0,
                     NoiseTolerance = h != null ? h.NoiseTolerance : 0,
                     Pet = h.Pet,
@@ -89,6 +89,7 @@ namespace RentApi.Services {
             res.RealName = dto.RealName;
             res.EnglishName = dto.EnglishName;
             res.Avatar = dto.Avatar;
+            res.Phone = dto.Phone;
             res.Address = dto.Address;
             res.Bio = dto.Bio;
 
@@ -114,6 +115,15 @@ namespace RentApi.Services {
             return Task.FromResult(true);
         }
 
+        public Task<bool> DeleteUserAsync(int userid) {
+            var res = _db.Account.FirstOrDefault(x => x.Id == userid);
+            if(res == null) {
+                return Task.FromResult(false);
+            }
+            res.IsDelete = true;
+            _db.SaveChanges();
+            return Task.FromResult(true);
+        }
 
         public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)
         {
