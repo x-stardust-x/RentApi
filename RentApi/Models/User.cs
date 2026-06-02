@@ -23,5 +23,7 @@
         public int? ReviewCount { get; set; }
 
         public DateTime? CreateAt { get; set; }
+
+        public Account Account { get; set; }
     }
 }
