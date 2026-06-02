@@ -4,8 +4,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace RentApi.Models
 {
-    // 💡 請注意：[Table("這裡要填寫你資料庫真正的資料表名稱")] 
-    // 根據你的圖片右側頁籤，如果是 HouseViewing_Order 或 Viewing_Order，請記得修正括號內的字串
     [Table("House_Viewing_Order")]
     public class HouseViewing
     {
@@ -38,10 +36,6 @@ namespace RentApi.Models
 
         public DateTime? UpdatedAt { get; set; } // 補上欄位
 
-        // ==========================================
-        // 導覽屬性 (Navigation Property)
-        // 3. 補上這個，就能完美解決 image_b7913d 的 CS1061 報錯！
-        // ==========================================
         [ForeignKey("HouseId")]
         public virtual Rent_House RentHouse { get; set; }
     }

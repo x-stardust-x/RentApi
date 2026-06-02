@@ -6,7 +6,6 @@ namespace RentApi.Models.DTO
     {
         //[JsonPropertyName("houseId")]
         public int HouseId { get; set; }
-
         public int LesseeId { get; set; }
         public int LessorId { get; set; }
         public DateTime ViewingTime { get; set; }
