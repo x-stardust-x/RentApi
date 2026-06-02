@@ -22,8 +22,9 @@ namespace RentApi.Controllers
         }
 
         // ===================================================================
-        // 1. 承租人送出預約申請
+        // 1. 承租人送出預約申請 (對應詳細頁面的「確認預約」)
         // ===================================================================
+        // POST: api/HouseViewing/apply
         [HttpPost("apply")]
         public async Task<IActionResult> CreateApplication([FromBody] CreateViewingOrderDto dto)
         {
@@ -32,28 +33,58 @@ namespace RentApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            // 自動產生專題規格的預約單號
+            if (dto.HouseId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "HouseId 不可為 0，請檢查前端是否有送 houseId，或 DTO 的 JsonPropertyName 是否設定錯誤。"
+                });
+            }
+
+            // 自動產生專題規格的預約單號 (例如: B-20260601-A3D2)
             string uniqueId = Guid.NewGuid().ToString().Substring(0, 4).ToUpper();
             string generatedOrderNumber = $"B-{DateTime.Now:yyyyMMdd}-{uniqueId}";
 
-            // 建立要存入資料庫的 Entity 物件
-            var newViewing = new HouseViewing
-            {
-                ReservationNo = generatedOrderNumber, // ⭕ 已修正為 ReservationNo
-                HouseId = dto.HouseId,
-                LesseId = dto.LesseeId,               // ⭕ 已修正為 LesseId (單個 e)
-                LessorId = dto.LessorId,
-                ViewingTime = dto.ViewingTime,        // ⭕ 已修正為 ViewingTime
-                ExpectedMoveIn = dto.ExpectedMoveIn,
-                Message = dto.Message,
-                MatchScore = dto.MatchScore,
-                Status = 0,                           // 🚨 已修正：資料庫是 int，0 代表 pending
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
-            };
-
             try
             {
+                // 💡 【新加入的防呆與查詢邏輯】
+                // 1. 先用前端傳來的 HouseId，去房屋表找出這間房子
+                // (請根據你的 AppDbContext 調整 _context.Rent_Houses 的名稱，有時可能是小寫或單數)
+                var house = await _context.Rent_Houses.FirstOrDefaultAsync(h => h.Id == dto.HouseId);
+                if (house == null)
+                {
+                    return BadRequest(new { message = $"找不到 ID 為 {dto.HouseId} 的房屋資料" });
+                }
+
+                // 2. 拿房屋表裡面的 AccountId，去 User 表找出這個房東真實的 User.Id
+                // (請根據你的 AppDbContext 調整 _context.Users 或 _context.User 的名稱)
+                var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
+                if (lessorUser == null)
+                {
+                    return BadRequest(new { message = $"找不到該房屋(AccountId: {house.AccountId})對應的房東使用者帳戶" });
+                }
+
+                // 建立要存入資料庫的 Entity 物件
+                var newViewing = new HouseViewing
+                {
+                    ReservationNo = generatedOrderNumber,
+                    HouseId = dto.HouseId,
+
+                    LesseeId = dto.LesseeId,
+                    LessorId = lessorUser.Id,
+
+                    //ViewingTime = DateTime.Parse(dto.ViewingTime),
+                    //ExpectedMoveIn = DateTime.Parse(dto.ExpectedMoveIn),
+
+                    ViewingTime = dto.ViewingTime,
+                    ExpectedMoveIn = dto.ExpectedMoveIn,
+                    Message = dto.Message,
+                    MatchScore = dto.MatchScore,
+                    Status = 0,                // 預設為 0 (pending)
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
                 _context.HouseViewings.Add(newViewing);
                 await _context.SaveChangesAsync();
 
@@ -61,7 +92,7 @@ namespace RentApi.Controllers
             }
             catch (Exception ex)
             {
-                // 這裡如果出錯，會把最底層的錯誤細節吐出來，方便你除錯
+                // 這裡回傳 InnerException，如果資料庫又報錯，前端能看到最底層的 SQL 錯誤原因
                 return StatusCode(500, new { message = "送出預約失敗，請稍後再試", details = ex.InnerException?.Message ?? ex.Message });
             }
         }
@@ -69,43 +100,90 @@ namespace RentApi.Controllers
         // ===================================================================
         // 2. 出租人(房東)取得「看房預約審核」列表
         // ===================================================================
-        [HttpGet("lessor/{lessorId}/approvals")]
+        [HttpGet("lessor/{lessorId:int}/approvals")]
         public async Task<IActionResult> GetLessorApprovals(int lessorId)
         {
             try
             {
-                var approvals = await _context.HouseViewings
-                    .Where(v => v.LessorId == lessorId)
-                    .OrderByDescending(v => v.CreatedAt)
-                    .Select(v => new ViewingOrderResponseDto
+                var rawData = await (
+                    from v in _context.HouseViewings.AsNoTracking()
+                    join h in _context.Rent_Houses.AsNoTracking()
+                        on v.HouseId equals h.Id into houseJoin
+                    from h in houseJoin.DefaultIfEmpty()
+                    where v.LessorId == lessorId
+                    orderby ((DateTime?)v.CreatedAt ?? DateTime.MinValue) descending
+                    select new
                     {
-                        Id = v.Id.ToString(),
-                        OrderNumber = v.ReservationNo, // ⭕ 已修正為 ReservationNo
+                        Id = v.Id,
 
-                        // 🚨 轉型處理：因為前端預期收到字串狀態，我們在這裡把 int 轉回字串
-                        Status = v.Status == 1 ? "confirmed" : v.Status == 2 ? "rejected" : "pending",
+                        ReservationNo = v.ReservationNo,
 
-                        RoomName = v.RentHouse != null ? v.RentHouse.Name : "未知房源",
-                        Applicant = new ApplicantDetailDto
-                        {
-                            Name = "申請人_" + v.LesseId, // ⭕ 已修正為 LesseId
-                            Avatar = "images/mr_chen.jpg",
-                            Profiles = new List<string> { "單人", "無寵", "不菸" },
-                            MoveInDate = v.ExpectedMoveIn.ToString("yyyy/MM/dd"),
-                            Phone = "0912***678",
-                            LineId = "line_" + v.LesseId
-                        },
-                        ViewingDateTime = v.ViewingTime.ToString("yyyy/MM/dd (dd) HH:mm"), // ⭕ 已修正為 ViewingTime
+                        Status = (int?)v.Status,
+
+                        RoomName = h != null ? h.Name : null,
+
+                        LesseeId = (int?)v.LesseeId,
+
+                        ExpectedMoveIn = (DateTime?)v.ExpectedMoveIn,
+
+                        ViewingTime = (DateTime?)v.ViewingTime,
+
                         Message = v.Message,
-                        MatchScore = v.MatchScore
-                    })
-                    .ToListAsync();
+
+                        MatchScore = (int?)v.MatchScore
+                    }
+                ).ToListAsync();
+
+                var approvals = rawData.Select(v => new ViewingOrderResponseDto
+                {
+                    Id = v.Id.ToString(),
+
+                    OrderNumber = string.IsNullOrWhiteSpace(v.ReservationNo)
+                        ? $"B-FIX-{v.Id}"
+                        : v.ReservationNo,
+
+                    Status = v.Status == 1 ? "confirmed" :
+                             v.Status == 2 ? "rejected" :
+                             "pending",
+
+                    RoomName = string.IsNullOrWhiteSpace(v.RoomName)
+                        ? "未知房源"
+                        : v.RoomName,
+
+                    Applicant = new ApplicantDetailDto
+                    {
+                        Name = $"申請人_{v.LesseeId ?? 0}",
+                        Avatar = "images/mr_chen.jpg",
+                        Profiles = new List<string> { "單人", "無寵", "不菸" },
+
+                        MoveInDate = v.ExpectedMoveIn.HasValue
+                            ? v.ExpectedMoveIn.Value.ToString("yyyy/MM/dd")
+                            : "尚未填寫",
+
+                        Phone = "0912***678",
+                        LineId = $"line_{v.LesseeId ?? 0}"
+                    },
+
+                    ViewingDateTime = v.ViewingTime.HasValue
+                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
+                        : "尚未選擇時間",
+
+                    Message = string.IsNullOrWhiteSpace(v.Message)
+                        ? "無留言"
+                        : v.Message,
+
+                    MatchScore = v.MatchScore ?? 0
+                }).ToList();
 
                 return Ok(approvals);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "取得審核列表失敗", details = ex.InnerException?.Message ?? ex.Message });
+                return StatusCode(500, new
+                {
+                    message = "取得審核列表失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
             }
         }
 
@@ -118,7 +196,7 @@ namespace RentApi.Controllers
             try
             {
                 var applications = await _context.HouseViewings
-                    .Where(v => v.LesseId == lesseeId) // 💡 如果資料庫是 LesseId，這行稍後編譯若報錯請改為 v.LesseId == lesseeId
+                    .Where(v => v.LesseeId == lesseeId) // 💡 如果資料庫是 LesseId，這行稍後編譯若報錯請改為 v.LesseId == lesseeId
                     .OrderByDescending(v => v.CreatedAt)
                     .Select(v => new ViewingOrderResponseDto
                     {
@@ -131,13 +209,17 @@ namespace RentApi.Controllers
                             Name = "我自己",
                             Avatar = "images/mr_chen.jpg",
                             Profiles = new List<string> { "單人", "無寵", "不菸" },
-                            MoveInDate = v.ExpectedMoveIn.ToString("yyyy/MM/dd"),
+                            MoveInDate = v.ExpectedMoveIn.HasValue
+                                ? v.ExpectedMoveIn.Value.ToString("yyyy/MM/dd")
+                                : "尚未填寫",
                             Phone = "0912***678",
                             LineId = "my_line_id"
                         },
-                        ViewingDateTime = v.ViewingTime.ToString("yyyy/MM/dd (dd) HH:mm"), // ⭕ 已修正為 ViewingTime
+                        ViewingDateTime = v.ViewingTime.HasValue
+                            ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
+                            : "尚未選擇時間",
                         Message = v.Message,
-                        MatchScore = v.MatchScore
+                        MatchScore = v.MatchScore ?? 0
                     })
                     .ToListAsync();
 
