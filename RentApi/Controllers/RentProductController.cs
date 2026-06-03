@@ -74,6 +74,19 @@ namespace CoLiving.Controllers
         {
             if (request == null) return BadRequest("資料不能為空");
 
+            // 🚀 1. 防呆檢查：確保前端有傳入有效的 AccountId
+            if (request.AccountId <= 0)
+            {
+                return BadRequest($"無效的使用者 ID！接收到的 AccountId 為: {request.AccountId}，請檢查前端 Angular 傳送的資料。");
+            }
+
+            // 🚀 2. 關聯檢查：去資料庫確認這個會員真的存在 (這一步可視需求決定要不要加)
+            var accountExists = _context.Account.Any(a => a.Id == request.AccountId);
+            if (!accountExists)
+            {
+                return NotFound($"找不到 ID 為 {request.AccountId} 的會員，請確認該會員是否已註冊！");
+            }
+
             var newProduct = new RentProduct
             {
                 AccountId = request.AccountId,

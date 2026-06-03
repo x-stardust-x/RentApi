@@ -42,7 +42,7 @@ namespace RentApi.Services {
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
             return await(
                 from u in _db.User
-                join d in _db.Location_District on u.DistrictId equals d.DistrictId
+                join d in _db.Location_Districts on u.DistrictId equals d.DistrictId
                 join h in _db.User_Habit on u.Id equals h.UserId into habitGroup
                 from h in habitGroup.DefaultIfEmpty()
 
