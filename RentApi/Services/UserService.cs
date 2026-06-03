@@ -185,5 +185,20 @@ namespace RentApi.Services {
                 Reviews = new List<LessorPublicProfileDto.ReviewDto>()
             };
         }
+
+        public async Task<object> GetAccountSettingAsync(int userId) {
+            var res = await (
+                from u in _db.User
+                join a in _db.Account on u.AccountId equals a.Id
+                where u.Id == userId
+                select new {
+                    email = a.Email,
+                    phone = u.Phone,
+                    //lineId = u.LineId,
+                }
+            ).FirstOrDefaultAsync();
+
+            return res;
+        }
     }
 }
