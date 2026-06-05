@@ -20,6 +20,7 @@ namespace RentApi.Services {
                     Name = admin.Username,
                     Action = log.Action,
                     IpAddress = log.IpAddress,
+                    CreatedAt = log.CreatedAt,
                 }
             ).ToListAsync();
 
