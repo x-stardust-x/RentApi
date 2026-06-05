@@ -38,6 +38,10 @@ namespace RentApi.Controllers {
                     message = "密碼錯誤"
                 });
             }
+            string iden = "admin";
+            if(res.isSuper == true) {
+                iden = "super";
+            }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
 
@@ -46,7 +50,7 @@ namespace RentApi.Controllers {
             var claims = new[]
                 {
                     new Claim(ClaimTypes.Name, res.Username),
-                    new Claim(ClaimTypes.Role, "admin"),
+                    new Claim(ClaimTypes.Role, iden),
                     new Claim("AdminId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
@@ -80,14 +84,14 @@ namespace RentApi.Controllers {
                 });
             }
 
-            var iden = "";
+            var iden = "user";
 
-            if(res.Identity == Identity.young) {
-                iden = "young";
-            }
-            else {
-                iden = "old";
-            }
+            //if(res.Identity == Identity.young) {
+            //    iden = "young";
+            //}
+            //else {
+            //    iden = "old";
+            //}
 
             res.LastLoginAt = DateTime.Now;
             _db.SaveChanges();
@@ -125,7 +129,11 @@ namespace RentApi.Controllers {
 
             if (exist)
                 return BadRequest(new { message = "帳號已存在" });
+            if (dto.Account.Age < 18) {
+                return BadRequest(new { message = "年齡必須大於18歲" });
+            }
 
+            int isYoung = dto.Account.Age <= 65 ? 0 : 1; // 假設 65 歲以下代表年輕人，否則代表年長者
             string hashedPwd = PasswordHelper.Hash(dto.Account.Pwd);
 
             using var transaction = _db.Database.BeginTransaction();
@@ -137,7 +145,7 @@ namespace RentApi.Controllers {
                     Email = dto.Account.Email,
                     Birthday = dto.Account.Birthday,
                     Age = dto.Account.Age,
-                    Identity = (Identity)dto.Account.Identity,
+                    Identity = (Identity)isYoung,
                     Status = true
                 };
                 _db.Account.Add(account);
