@@ -36,7 +36,20 @@ namespace RentApi.Models
 
         public DateTime? UpdatedAt { get; set; } // 補上欄位
 
+        public int? ViewingSlotId { get; set; }
+
+        public string? ExpectedMoveInText { get; set; }
+
+        public string? PreferredTimeSlotsJson { get; set; }
+
+        public string? LesseeProfileTagsJson { get; set; }
+
+
+
         [ForeignKey("HouseId")]
         public virtual Rent_House RentHouse { get; set; }
+
+        [ForeignKey("ViewingSlotId")]
+        public virtual HouseViewingAvailableSlot? ViewingSlot { get; set; }
     }
 }

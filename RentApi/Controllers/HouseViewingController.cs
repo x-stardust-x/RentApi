@@ -7,6 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.Text.Json;
+
 
 namespace RentApi.Controllers
 {
@@ -25,6 +29,8 @@ namespace RentApi.Controllers
         // 1. 承租人送出預約申請 (對應詳細頁面的「確認預約」)
         // ===================================================================
         // POST: api/HouseViewing/apply
+
+        [Authorize]
         [HttpPost("apply")]
         public async Task<IActionResult> CreateApplication([FromBody] CreateViewingOrderDto dto)
         {
@@ -33,54 +39,82 @@ namespace RentApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            if (dto.HouseId <= 0)
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
             {
-                return BadRequest(new
-                {
-                    message = "HouseId 不可為 0，請檢查前端是否有送 houseId，或 DTO 的 JsonPropertyName 是否設定錯誤。"
-                });
+                return Unauthorized(new { message = "請先登入後再送出預約" });
             }
 
-            // 自動產生專題規格的預約單號 (例如: B-20260601-A3D2)
             string uniqueId = Guid.NewGuid().ToString().Substring(0, 4).ToUpper();
             string generatedOrderNumber = $"B-{DateTime.Now:yyyyMMdd}-{uniqueId}";
 
             try
             {
-                // 💡 【新加入的防呆與查詢邏輯】
-                // 1. 先用前端傳來的 HouseId，去房屋表找出這間房子
-                // (請根據你的 AppDbContext 調整 _context.Rent_Houses 的名稱，有時可能是小寫或單數)
                 var house = await _context.Rent_Houses.FirstOrDefaultAsync(h => h.Id == dto.HouseId);
+
                 if (house == null)
                 {
                     return BadRequest(new { message = $"找不到 ID 為 {dto.HouseId} 的房屋資料" });
                 }
 
-                // 2. 拿房屋表裡面的 AccountId，去 User 表找出這個房東真實的 User.Id
-                // (請根據你的 AppDbContext 調整 _context.Users 或 _context.User 的名稱)
-                var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
+                //var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
+
+                var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.Id == house.AccountId);
+
                 if (lessorUser == null)
                 {
-                    return BadRequest(new { message = $"找不到該房屋(AccountId: {house.AccountId})對應的房東使用者帳戶" });
+                    return BadRequest(new { message = $"找不到該房屋(AccountId: {house.AccountId})對應的出租人帳號" });
                 }
 
-                // 建立要存入資料庫的 Entity 物件
+                if (lessorUser.Id == currentUser.Id)
+                {
+                    return BadRequest(new { message = "不能預約自己發布的房源" });
+                }
+
+                DateTime? finalViewingTime = dto.ViewingTime;
+
+                if (dto.ViewingSlotId.HasValue)
+                {
+                    var selectedSlot = await _context.HouseViewingAvailableSlots
+                        .FirstOrDefaultAsync(s =>
+                            s.Id == dto.ViewingSlotId.Value &&
+                            s.HouseId == dto.HouseId &&
+                            s.IsEnabled);
+
+                    if (selectedSlot == null)
+                    {
+                        return BadRequest(new { message = "選擇的看房時段不存在或已停用" });
+                    }
+
+                    finalViewingTime = selectedSlot.AvailableDate?.ToDateTime(selectedSlot.StartTime);
+                }
+
                 var newViewing = new HouseViewing
                 {
                     ReservationNo = generatedOrderNumber,
                     HouseId = dto.HouseId,
 
-                    LesseeId = dto.LesseeId,
+                    LesseeId = currentUser.Id,
                     LessorId = lessorUser.Id,
 
-                    //ViewingTime = DateTime.Parse(dto.ViewingTime),
-                    //ExpectedMoveIn = DateTime.Parse(dto.ExpectedMoveIn),
+                    ViewingSlotId = dto.ViewingSlotId,
 
-                    ViewingTime = dto.ViewingTime,
-                    ExpectedMoveIn = dto.ExpectedMoveIn,
-                    Message = dto.Message,
+                    ViewingTime = finalViewingTime ?? DateTime.Now,
+                    ExpectedMoveIn = dto.ExpectedMoveIn ?? DateTime.Now,
+                    ExpectedMoveInText = dto.ExpectedMoveInText,
+
+                    PreferredTimeSlotsJson = dto.PreferredTimeSlots == null
+                        ? null
+                        : JsonSerializer.Serialize(dto.PreferredTimeSlots),
+
+                    LesseeProfileTagsJson = dto.LesseeProfileTags == null
+                        ? null
+                        : JsonSerializer.Serialize(dto.LesseeProfileTags),
+
+                    Message = dto.Message ?? string.Empty,
                     MatchScore = dto.MatchScore,
-                    Status = 0,                // 預設為 0 (pending)
+                    Status = 0,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
@@ -88,14 +122,106 @@ namespace RentApi.Controllers
                 _context.HouseViewings.Add(newViewing);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = "預約申請已成功送出！", orderNumber = generatedOrderNumber });
+                return Ok(new
+                {
+                    success = true,
+                    message = "預約申請已成功送出！",
+                    orderNumber = generatedOrderNumber
+                });
             }
             catch (Exception ex)
             {
-                // 這裡回傳 InnerException，如果資料庫又報錯，前端能看到最底層的 SQL 錯誤原因
-                return StatusCode(500, new { message = "送出預約失敗，請稍後再試", details = ex.InnerException?.Message ?? ex.Message });
+                return StatusCode(500, new
+                {
+                    message = "送出預約失敗，請稍後再試",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
             }
         }
+
+
+
+        //[HttpPost("apply")]
+        //public async Task<IActionResult> CreateApplication([FromBody] CreateViewingOrderDto dto)
+        //{
+        //    if (!ModelState.IsValid)
+        //    {
+        //        return BadRequest(ModelState);
+        //    }
+
+        //    if (dto.HouseId <= 0)
+        //    {
+        //        return BadRequest(new
+        //        {
+        //            message = "HouseId 不可為 0，請檢查前端是否有送 houseId，或 DTO 的 JsonPropertyName 是否設定錯誤。"
+        //        });
+        //    }
+
+        //    // 自動產生專題規格的預約單號 (例如: B-20260601-A3D2)
+        //    string uniqueId = Guid.NewGuid().ToString().Substring(0, 4).ToUpper();
+        //    string generatedOrderNumber = $"B-{DateTime.Now:yyyyMMdd}-{uniqueId}";
+
+        //    try
+        //    {
+        //        // 💡 【新加入的防呆與查詢邏輯】
+        //        // 1. 先用前端傳來的 HouseId，去房屋表找出這間房子
+        //        // (請根據你的 AppDbContext 調整 _context.Rent_Houses 的名稱，有時可能是小寫或單數)
+        //        var house = await _context.Rent_Houses.FirstOrDefaultAsync(h => h.Id == dto.HouseId);
+        //        if (house == null)
+        //        {
+        //            return BadRequest(new { message = $"找不到 ID 為 {dto.HouseId} 的房屋資料" });
+        //        }
+
+        //        // 2. 拿房屋表裡面的 AccountId，去 User 表找出這個房東真實的 User.Id
+        //        // (請根據你的 AppDbContext 調整 _context.Users 或 _context.User 的名稱)
+        //        var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
+        //        if (lessorUser == null)
+        //        {
+        //            return BadRequest(new { message = $"找不到該房屋(AccountId: {house.AccountId})對應的房東使用者帳戶" });
+        //        }
+
+        //        // 建立要存入資料庫的 Entity 物件
+        //        var newViewing = new HouseViewing
+        //        {
+        //            ReservationNo = generatedOrderNumber,
+        //            HouseId = dto.HouseId,
+
+        //            // 之後建議改成 currentUser.Id，不要相信前端傳 LesseeId
+        //            LesseeId = currentUser.Id,
+        //            LessorId = lessorUser.Id,
+
+        //            ViewingSlotId = dto.ViewingSlotId,
+
+        //            ViewingTime = dto.ViewingTime,
+        //            ExpectedMoveIn = dto.ExpectedMoveIn ?? DateTime.Now,
+        //            ExpectedMoveInText = dto.ExpectedMoveInText,
+
+        //            PreferredTimeSlotsJson = dto.PreferredTimeSlots == null
+        //                ? null
+        //                : JsonSerializer.Serialize(dto.PreferredTimeSlots),
+
+        //            LesseeProfileTagsJson = dto.LesseeProfileTags == null
+        //                ? null
+        //                : JsonSerializer.Serialize(dto.LesseeProfileTags),
+
+        //            Message = dto.Message ?? string.Empty,
+        //            MatchScore = dto.MatchScore,
+        //            Status = 0,
+        //            CreatedAt = DateTime.Now,
+        //            UpdatedAt = DateTime.Now
+        //        };
+
+        //        _context.HouseViewings.Add(newViewing);
+        //        await _context.SaveChangesAsync();
+
+        //        return Ok(new { success = true, message = "預約申請已成功送出！", orderNumber = generatedOrderNumber });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // 這裡回傳 InnerException，如果資料庫又報錯，前端能看到最底層的 SQL 錯誤原因
+        //        return StatusCode(500, new { message = "送出預約失敗，請稍後再試", details = ex.InnerException?.Message ?? ex.Message });
+        //    }
+        //}
 
         // ===================================================================
         // 2. 出租人(房東)取得「看房預約審核」列表
@@ -270,6 +396,361 @@ namespace RentApi.Controllers
             {
                 return StatusCode(500, new { message = "資料庫更新失敗", details = ex.InnerException?.Message ?? ex.Message });
             }
+        }
+
+        private async Task<User?> GetCurrentUserAsync()
+        {
+            var rawId =
+                User.FindFirstValue("UserId") ??
+                User.FindFirstValue("userId") ??
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(rawId, out var id))
+            {
+                return null;
+            }
+
+            var userByUserId = await _context.User.FirstOrDefaultAsync(u => u.Id == id);
+            if (userByUserId != null) return userByUserId;
+
+            var userByAccountId = await _context.User.FirstOrDefaultAsync(u => u.AccountId == id);
+            return userByAccountId;
+        }
+
+
+        [Authorize]
+        [HttpGet("my-lessee-profile-tags")]
+        public async Task<IActionResult> GetMyLesseeProfileTags()
+        {
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "請先登入" });
+            }
+
+            var habit = await _context.User_Habit
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.UserId == currentUser.Id);
+
+            var tags = new List<object>();
+
+            if (habit == null)
+            {
+                return Ok(tags);
+            }
+
+            if (habit.CleanLevel >= 4)
+                tags.Add(new { label = "重視整潔", source = "habit", icon = "cleaning_services" });
+            else if (habit.CleanLevel <= 2)
+                tags.Add(new { label = "可接受生活感", source = "habit", icon = "home" });
+            else
+                tags.Add(new { label = "普通整潔", source = "habit", icon = "mop" });
+
+            if (habit.NoiseTolerance <= 2)
+                tags.Add(new { label = "喜歡安靜", source = "habit", icon = "volume_off" });
+            else if (habit.NoiseTolerance >= 4)
+                tags.Add(new { label = "可接受熱鬧", source = "habit", icon = "groups" });
+            else
+                tags.Add(new { label = "一般音量可接受", source = "habit", icon = "volume_up" });
+
+            tags.Add(new
+            {
+                label = habit.Pet == true ? "可接受寵物" : "無寵物",
+                source = "habit",
+                icon = "pets"
+            });
+
+            tags.Add(new
+            {
+                label = habit.Smoke == true ? "可接受抽菸" : "不抽菸",
+                source = "habit",
+                icon = "smoke_free"
+            });
+
+            if (!string.IsNullOrWhiteSpace(habit.Interests))
+            {
+                var interests = habit.Interests
+                    .Split(new[] { ',', '，', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.Trim())
+                    .Where(x => x.Length > 0);
+
+                foreach (var interest in interests)
+                {
+                    tags.Add(new { label = interest, source = "habit", icon = "interests" });
+                }
+            }
+
+            return Ok(tags);
+        }
+
+        [Authorize]
+        [HttpPut("house/{houseId:int}/available-slots")]
+        public async Task<IActionResult> ReplaceAvailableSlotsByHouse(
+            int houseId,
+            [FromBody] List<UpsertViewingSlotDto> request
+        )
+        {
+            try
+            {
+                var currentUser = await GetCurrentUserAsync();
+
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "請先登入" });
+                }
+
+                var house = await _context.Rent_Houses
+                    .FirstOrDefaultAsync(h => h.Id == houseId);
+
+                if (house == null)
+                {
+                    return NotFound(new { message = "找不到房源資料" });
+                }
+
+                var lessorUser = await _context.User
+                    .FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
+
+                if (lessorUser == null)
+                {
+                    return BadRequest(new { message = "找不到此房源對應的出租人帳號" });
+                }
+
+                var oldSlots = await _context.HouseViewingAvailableSlots
+                    .Where(s => s.HouseId == houseId)
+                    .ToListAsync();
+
+                foreach (var oldSlot in oldSlots)
+                {
+                    oldSlot.IsEnabled = false;
+                    oldSlot.UpdatedAt = DateTime.Now;
+                }
+
+                foreach (var item in request)
+                {
+                    if (string.IsNullOrWhiteSpace(item.StartTime) ||
+                        string.IsNullOrWhiteSpace(item.EndTime))
+                    {
+                        continue;
+                    }
+
+                    var startTime = TimeOnly.Parse(item.StartTime);
+                    var endTime = TimeOnly.Parse(item.EndTime);
+
+                    if (endTime <= startTime)
+                    {
+                        return BadRequest(new { message = "結束時間必須晚於開始時間" });
+                    }
+
+                    _context.HouseViewingAvailableSlots.Add(new HouseViewingAvailableSlot
+                    {
+                        HouseId = houseId,
+                        LessorId = lessorUser.Id,
+                        AvailableDate = null,
+                        StartTime = startTime,
+                        EndTime = endTime,
+                        IsEnabled = item.IsEnabled,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "房源可看房時段已更新" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "更新可看房時段失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("house/{houseId:int}/available-slots")]
+        public async Task<IActionResult> GetAvailableSlotsByHouse(int houseId)
+        {
+            var rawSlots = await _context.HouseViewingAvailableSlots
+                .AsNoTracking()
+                .Where(s => s.HouseId == houseId && s.IsEnabled)
+                .OrderBy(s => s.StartTime)
+                .ToListAsync();
+
+            var slots = rawSlots.Select(s => new
+            {
+                id = s.Id,
+                houseId = s.HouseId,
+                lessorId = s.LessorId,
+                startTime = s.StartTime.ToString("HH:mm"),
+                endTime = s.EndTime.ToString("HH:mm"),
+                label = $"{s.StartTime:HH:mm} - {s.EndTime:HH:mm}"
+            }).ToList();
+
+            return Ok(slots);
+        }
+
+
+        [Authorize]
+        [HttpGet("my-approvals")]
+        public async Task<IActionResult> GetMyApprovals()
+        {
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "請先登入" });
+            }
+
+            try
+            {
+                var rawData = await (
+                    from v in _context.HouseViewings.AsNoTracking()
+
+                    join h in _context.Rent_Houses.AsNoTracking()
+                        on v.HouseId equals h.Id into houseJoin
+                    from h in houseJoin.DefaultIfEmpty()
+
+                    join lessee in _context.User.AsNoTracking()
+                        on v.LesseeId equals lessee.Id into lesseeJoin
+                    from lessee in lesseeJoin.DefaultIfEmpty()
+
+                    where v.LessorId == currentUser.Id
+
+                    orderby v.CreatedAt descending
+
+                    select new
+                    {
+                        v.Id,
+                        v.ReservationNo,
+                        v.Status,
+                        RoomName = h != null ? h.Name : "未知房源",
+
+                        LesseeName = lessee != null ? lessee.RealName : "未知申請人",
+                        LesseePhone = lessee != null ? lessee.Phone : "",
+                        LesseeLineId = lessee != null ? lessee.LineId : "",
+                        LesseeAvatar = lessee != null ? lessee.Avatar : "",
+
+                        v.ViewingTime,
+                        v.ExpectedMoveIn,
+                        v.ExpectedMoveInText,
+                        v.PreferredTimeSlotsJson,
+                        v.LesseeProfileTagsJson,
+                        v.Message,
+                        v.MatchScore
+                    }
+                ).ToListAsync();
+
+                var approvals = rawData.Select(v => new ViewingOrderResponseDto
+                {
+                    Id = v.Id.ToString(),
+
+                    OrderNumber = string.IsNullOrWhiteSpace(v.ReservationNo)
+                        ? $"B-FIX-{v.Id}"
+                        : v.ReservationNo,
+
+                    Status = (v.Status ?? 0) == 1 ? "confirmed" :
+                             (v.Status ?? 0) == 2 ? "rejected" :
+                             "pending",
+
+                    RoomName = v.RoomName,
+
+                    Applicant = new ApplicantDetailDto
+                    {
+                        Name = string.IsNullOrWhiteSpace(v.LesseeName)
+                            ? "未知申請人"
+                            : v.LesseeName,
+
+                        Avatar = string.IsNullOrWhiteSpace(v.LesseeAvatar)
+                            ? "images/mr_chen.jpg"
+                            : v.LesseeAvatar,
+
+                        Profiles = ParseLesseeProfileLabels(v.LesseeProfileTagsJson),
+
+                        MoveInDate = !string.IsNullOrWhiteSpace(v.ExpectedMoveInText)
+                            ? v.ExpectedMoveInText
+                            : v.ExpectedMoveIn.HasValue
+                                ? v.ExpectedMoveIn.Value.ToString("yyyy/MM/dd")
+                                : "尚未填寫",
+
+                        Phone = string.IsNullOrWhiteSpace(v.LesseePhone)
+                            ? "未填寫"
+                            : v.LesseePhone,
+
+                        LineId = string.IsNullOrWhiteSpace(v.LesseeLineId)
+                            ? "未填寫"
+                            : v.LesseeLineId
+                    },
+
+                    ViewingDateTime = v.ViewingTime.HasValue
+                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
+                        : "尚未選擇時間",
+
+                    Message = BuildViewingMessage(v.PreferredTimeSlotsJson, v.Message),
+
+                    MatchScore = v.MatchScore ?? 0
+                }).ToList();
+
+                return Ok(approvals);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "取得審核列表失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
+        private static List<string> ParseLesseeProfileLabels(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var tags = JsonSerializer.Deserialize<List<LesseeProfileTagDto>>(json);
+                return tags?.Select(t => t.Label).Where(x => !string.IsNullOrWhiteSpace(x)).ToList()
+                       ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static string BuildViewingMessage(string? preferredTimeSlotsJson, string? message)
+        {
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(preferredTimeSlotsJson))
+            {
+                try
+                {
+                    var slots = JsonSerializer.Deserialize<List<string>>(preferredTimeSlotsJson);
+
+                    if (slots != null && slots.Any())
+                    {
+                        parts.Add("期望時段：" + string.Join("、", slots));
+                    }
+                }
+                catch
+                {
+                    parts.Add("期望時段：" + preferredTimeSlotsJson);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                parts.Add("留言：" + message);
+            }
+
+            return parts.Count == 0 ? "無留言" : string.Join("｜", parts);
         }
     }
 }
