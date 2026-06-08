@@ -46,6 +46,18 @@ namespace RentApi.Models
 
 
 
+        public DateTime? RescheduleProposedTime { get; set; }
+
+        public DateTime? RescheduleEndTime { get; set; }
+
+        public string? RescheduleMessage { get; set; }
+
+        public int RescheduleCount { get; set; }
+
+        public DateTime? LastRescheduleAt { get; set; }
+
+
+
         [ForeignKey("HouseId")]
         public virtual Rent_House RentHouse { get; set; }
 

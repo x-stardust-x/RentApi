@@ -60,7 +60,8 @@ namespace RentApi.Controllers
 
                 //var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
 
-                var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.Id == house.AccountId);
+                var lessorUser = await _context.User
+                    .FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
 
                 if (lessorUser == null)
                 {
@@ -87,7 +88,14 @@ namespace RentApi.Controllers
                         return BadRequest(new { message = "選擇的看房時段不存在或已停用" });
                     }
 
-                    finalViewingTime = selectedSlot.AvailableDate?.ToDateTime(selectedSlot.StartTime);
+                    if (selectedSlot.AvailableDate.HasValue)
+                    {
+                        finalViewingTime = selectedSlot.AvailableDate.Value.ToDateTime(selectedSlot.StartTime);
+                    }
+                    else if (!dto.ViewingTime.HasValue)
+                    {
+                        return BadRequest(new { message = "請選擇看房日期" });
+                    }
                 }
 
                 var newViewing = new HouseViewing
@@ -99,7 +107,6 @@ namespace RentApi.Controllers
                     LessorId = lessorUser.Id,
 
                     ViewingSlotId = dto.ViewingSlotId,
-
                     ViewingTime = finalViewingTime ?? DateTime.Now,
                     ExpectedMoveIn = dto.ExpectedMoveIn ?? DateTime.Now,
                     ExpectedMoveInText = dto.ExpectedMoveInText,
@@ -500,6 +507,9 @@ namespace RentApi.Controllers
                     return Unauthorized(new { message = "請先登入" });
                 }
 
+                //var house = await _context.Rent_Houses
+                //    .FirstOrDefaultAsync(h => h.Id == dto.HouseId);
+
                 var house = await _context.Rent_Houses
                     .FirstOrDefaultAsync(h => h.Id == houseId);
 
@@ -513,7 +523,7 @@ namespace RentApi.Controllers
 
                 if (lessorUser == null)
                 {
-                    return BadRequest(new { message = "找不到此房源對應的出租人帳號" });
+                    return BadRequest(new { message = $"找不到此房源對應的出租人資料，Rent_House.AccountId = {house.AccountId}" });
                 }
 
                 var oldSlots = await _context.HouseViewingAvailableSlots
@@ -573,23 +583,38 @@ namespace RentApi.Controllers
         [HttpGet("house/{houseId:int}/available-slots")]
         public async Task<IActionResult> GetAvailableSlotsByHouse(int houseId)
         {
-            var rawSlots = await _context.HouseViewingAvailableSlots
-                .AsNoTracking()
-                .Where(s => s.HouseId == houseId && s.IsEnabled)
-                .OrderBy(s => s.StartTime)
-                .ToListAsync();
-
-            var slots = rawSlots.Select(s => new
+            try
             {
-                id = s.Id,
-                houseId = s.HouseId,
-                lessorId = s.LessorId,
-                startTime = s.StartTime.ToString("HH:mm"),
-                endTime = s.EndTime.ToString("HH:mm"),
-                label = $"{s.StartTime:HH:mm} - {s.EndTime:HH:mm}"
-            }).ToList();
+                var rawSlots = await _context.HouseViewingAvailableSlots
+                    .AsNoTracking()
+                    .Where(s => s.HouseId == houseId && s.IsEnabled)
+                    .OrderBy(s => s.StartTime)
+                    .ToListAsync();
 
-            return Ok(slots);
+                var slots = rawSlots.Select(s => new
+                {
+                    id = s.Id,
+                    houseId = s.HouseId,
+                    lessorId = s.LessorId,
+                    availableDate = s.AvailableDate.HasValue
+                        ? s.AvailableDate.Value.ToString("yyyy-MM-dd")
+                        : null,
+                    startTime = s.StartTime.ToString("HH:mm"),
+                    endTime = s.EndTime.ToString("HH:mm"),
+                    label = $"{s.StartTime:HH:mm} - {s.EndTime:HH:mm}",
+                    isEnabled = s.IsEnabled
+                }).ToList();
+
+                return Ok(slots);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "取得可預約時段失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
         }
 
 
@@ -617,6 +642,10 @@ namespace RentApi.Controllers
                         on v.LesseeId equals lessee.Id into lesseeJoin
                     from lessee in lesseeJoin.DefaultIfEmpty()
 
+                    join lesseeAccount in _context.Account.AsNoTracking()
+                        on lessee.AccountId equals lesseeAccount.Id into lesseeAccountJoin
+                    from lesseeAccount in lesseeAccountJoin.DefaultIfEmpty()
+
                     where v.LessorId == currentUser.Id
 
                     orderby v.CreatedAt descending
@@ -626,9 +655,16 @@ namespace RentApi.Controllers
                         v.Id,
                         v.ReservationNo,
                         v.Status,
-                        RoomName = h != null ? h.Name : "未知房源",
 
-                        LesseeName = lessee != null ? lessee.RealName : "未知申請人",
+                        RoomName = h != null ? h.Name : "未知房源",
+                        RoomAddress = h != null ? h.Address : "",
+
+                        LesseeName =
+                            lessee != null && !string.IsNullOrWhiteSpace(lessee.RealName)
+                                ? lessee.RealName
+                                : lesseeAccount != null && !string.IsNullOrWhiteSpace(lesseeAccount.Username)
+                                    ? lesseeAccount.Username
+                                    : "未知申請人",
                         LesseePhone = lessee != null ? lessee.Phone : "",
                         LesseeLineId = lessee != null ? lessee.LineId : "",
                         LesseeAvatar = lessee != null ? lessee.Avatar : "",
@@ -639,7 +675,12 @@ namespace RentApi.Controllers
                         v.PreferredTimeSlotsJson,
                         v.LesseeProfileTagsJson,
                         v.Message,
-                        v.MatchScore
+                        v.MatchScore,
+
+                        v.RescheduleProposedTime,
+                        v.RescheduleEndTime,
+                        v.RescheduleMessage,
+                        v.RescheduleCount,
                     }
                 ).ToListAsync();
 
@@ -653,9 +694,16 @@ namespace RentApi.Controllers
 
                     Status = (v.Status ?? 0) == 1 ? "confirmed" :
                              (v.Status ?? 0) == 2 ? "rejected" :
+                             (v.Status ?? 0) == 3 ? "rescheduled" :
                              "pending",
 
-                    RoomName = v.RoomName,
+                    RoomName = string.IsNullOrWhiteSpace(v.RoomName)
+                        ? "未知房源"
+                        : v.RoomName,
+
+                    RoomAddress = string.IsNullOrWhiteSpace(v.RoomAddress)
+                        ? ""
+                        : v.RoomAddress,
 
                     Applicant = new ApplicantDetailDto
                     {
@@ -688,9 +736,36 @@ namespace RentApi.Controllers
                         ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
                         : "尚未選擇時間",
 
-                    Message = BuildViewingMessage(v.PreferredTimeSlotsJson, v.Message),
+                    ViewingDate = v.ViewingTime.HasValue
+                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd")
+                        : "尚未選擇日期",
 
-                    MatchScore = v.MatchScore ?? 0
+                    PreferredTimeSlots = ParsePreferredTimeSlots(v.PreferredTimeSlotsJson),
+
+                    Message = string.IsNullOrWhiteSpace(v.Message)
+                        ? "無留言"
+                        : v.Message,
+
+                    MatchScore = v.MatchScore ?? 0,
+
+
+
+
+                    RescheduleInfo = v.RescheduleProposedTime.HasValue
+                        ? new RescheduleInfoDto
+                        {
+                            ProposedViewingDateTime =
+                                v.RescheduleEndTime.HasValue
+                                    ? $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm} - {v.RescheduleEndTime.Value:HH:mm}"
+                                    : $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm}",
+
+                            Message = v.RescheduleMessage ?? "",
+                            Count = v.RescheduleCount
+                        }
+                        : null,
+
+
+
                 }).ToList();
 
                 return Ok(approvals);
@@ -751,6 +826,124 @@ namespace RentApi.Controllers
             }
 
             return parts.Count == 0 ? "無留言" : string.Join("｜", parts);
+        }
+
+        private static List<string> ParsePreferredTimeSlots(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var slots = JsonSerializer.Deserialize<List<string>>(json);
+
+                return slots?
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList()
+                    ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string> { json };
+            }
+        }
+
+        // 接受 / 婉拒預約
+        [Authorize]
+        [HttpPut("status")]
+        public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationStatusDto dto)
+        {
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "請先登入" });
+            }
+
+            var reservation = await _context.HouseViewings
+                .FirstOrDefaultAsync(v => v.Id == dto.ReservationId);
+
+            if (reservation == null)
+            {
+                return NotFound(new { message = "找不到此預約單" });
+            }
+
+            if (reservation.LessorId != currentUser.Id)
+            {
+                return Forbid();
+            }
+
+            if (dto.Status == "confirmed")
+            {
+                reservation.Status = 1;
+                reservation.RejectReason = null;
+            }
+            else if (dto.Status == "rejected")
+            {
+                reservation.Status = 2;
+                reservation.RejectReason = dto.RejectReason;
+            }
+
+            reservation.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "預約狀態已更新",
+                reservationId = reservation.Id,
+                status = dto.Status
+            });
+        }
+
+        // 提議改期
+        [Authorize]
+        [HttpPut("reschedule")]
+        public async Task<IActionResult> ProposeReschedule([FromBody] ProposeRescheduleDto dto)
+        {
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "請先登入" });
+            }
+
+            var reservation = await _context.HouseViewings
+                .FirstOrDefaultAsync(v => v.Id == dto.ReservationId);
+
+            if (reservation == null)
+            {
+                return NotFound(new { message = "找不到此預約單" });
+            }
+
+            if (reservation.LessorId != currentUser.Id)
+            {
+                return Forbid();
+            }
+
+            if (dto.ProposedEndTime.HasValue && dto.ProposedEndTime <= dto.ProposedStartTime)
+            {
+                return BadRequest(new { message = "改期結束時間必須晚於開始時間" });
+            }
+
+            reservation.Status = 3;
+            reservation.RescheduleProposedTime = dto.ProposedStartTime;
+            reservation.RescheduleEndTime = dto.ProposedEndTime;
+            reservation.RescheduleMessage = dto.Message;
+            reservation.RescheduleCount += 1;
+            reservation.LastRescheduleAt = DateTime.Now;
+            reservation.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "已提出改期",
+                reservationId = reservation.Id,
+                status = "rescheduled"
+            });
         }
     }
 }

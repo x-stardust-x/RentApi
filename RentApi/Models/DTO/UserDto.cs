@@ -13,6 +13,7 @@
         public string? Address { get; set; }
 
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Bio { get; set; }
 
