@@ -780,6 +780,156 @@ namespace RentApi.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("my-applications")]
+        public async Task<IActionResult> GetMyApplications()
+        {
+            var currentUser = await GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                return Unauthorized(new { message = "請先登入" });
+            }
+
+            try
+            {
+                var rawData = await (
+                    from v in _context.HouseViewings.AsNoTracking()
+
+                    join h in _context.Rent_Houses.AsNoTracking()
+                        on v.HouseId equals h.Id into houseJoin
+                    from h in houseJoin.DefaultIfEmpty()
+
+                    join lessor in _context.User.AsNoTracking()
+                        on v.LessorId equals lessor.Id into lessorJoin
+                    from lessor in lessorJoin.DefaultIfEmpty()
+
+                    where v.LesseeId == currentUser.Id
+
+                    orderby v.CreatedAt descending
+
+                    select new
+                    {
+                        v.Id,
+                        v.ReservationNo,
+                        v.Status,
+                        v.RejectReason,
+
+                        RoomName = h != null ? h.Name : "未知房源",
+                        RoomAddress = h != null ? h.Address : "",
+                        RentPrice = h != null ? h.RentPrice : 0,
+
+                        CoverUrl = _context.House_Images
+                            .AsNoTracking()
+                            .Where(img => img.HouseId == v.HouseId)
+                            .OrderByDescending(img => img.IsCover == true)
+                            .Select(img => img.Url)
+                            .FirstOrDefault(),
+
+                        LessorName = lessor != null && !string.IsNullOrWhiteSpace(lessor.RealName)
+                            ? lessor.RealName
+                            : "未知出租人",
+
+                        LessorPhone = lessor != null ? lessor.Phone : "",
+                        LessorLineId = lessor != null ? lessor.LineId : "",
+
+                        v.ViewingTime,
+                        v.PreferredTimeSlotsJson,
+                        v.Message,
+                        v.MatchScore,
+
+                        v.RescheduleProposedTime,
+                        v.RescheduleEndTime,
+                        v.RescheduleMessage,
+                        v.RescheduleCount
+                    }
+                ).ToListAsync();
+
+                var applications = rawData.Select(v => new LesseeViewingApplicationDto
+                {
+                    Id = v.Id.ToString(),
+
+                    OrderNumber = string.IsNullOrWhiteSpace(v.ReservationNo)
+                        ? $"B-FIX-{v.Id}"
+                        : v.ReservationNo,
+
+                    Status = (v.Status ?? 0) == 1 ? "confirmed" :
+                             (v.Status ?? 0) == 2 ? "rejected" :
+                             (v.Status ?? 0) == 3 ? "rescheduled" :
+                             "pending",
+
+                    RoomName = string.IsNullOrWhiteSpace(v.RoomName)
+                        ? "未知房源"
+                        : v.RoomName,
+
+                    RoomAddress = string.IsNullOrWhiteSpace(v.RoomAddress)
+                        ? "尚未提供地址"
+                        : v.RoomAddress,
+
+                    CoverUrl = string.IsNullOrWhiteSpace(v.CoverUrl)
+                        ? "images/default-room.jpg"
+                        : v.CoverUrl,
+
+                    RentPrice = v.RentPrice,
+
+                    LessorName = string.IsNullOrWhiteSpace(v.LessorName)
+                        ? "未知出租人"
+                        : v.LessorName,
+
+                    LessorPhone = string.IsNullOrWhiteSpace(v.LessorPhone)
+                        ? "未填寫"
+                        : v.LessorPhone,
+
+                    LessorLineId = string.IsNullOrWhiteSpace(v.LessorLineId)
+                        ? "未填寫"
+                        : v.LessorLineId,
+
+                    ViewingDate = v.ViewingTime.HasValue
+                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd")
+                        : "尚未選擇日期",
+
+                    ViewingDateTime = v.ViewingTime.HasValue
+                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
+                        : "尚未選擇時間",
+
+                    PreferredTimeSlots = ParsePreferredTimeSlots(v.PreferredTimeSlotsJson),
+
+                    Message = string.IsNullOrWhiteSpace(v.Message)
+                        ? "無留言"
+                        : v.Message,
+
+                    MatchScore = v.MatchScore ?? 0,
+
+                    RejectReason = string.IsNullOrWhiteSpace(v.RejectReason)
+                        ? ""
+                        : v.RejectReason,
+
+                    RescheduleInfo = v.RescheduleProposedTime.HasValue
+                        ? new RescheduleInfoDto
+                        {
+                            ProposedViewingDateTime =
+                                v.RescheduleEndTime.HasValue
+                                    ? $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm} - {v.RescheduleEndTime.Value:HH:mm}"
+                                    : $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm}",
+
+                            Message = v.RescheduleMessage ?? "",
+                            Count = v.RescheduleCount
+                        }
+                        : null
+                }).ToList();
+
+                return Ok(applications);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "取得看房申請追蹤失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
         private static List<string> ParseLesseeProfileLabels(string? json)
         {
             if (string.IsNullOrWhiteSpace(json))
