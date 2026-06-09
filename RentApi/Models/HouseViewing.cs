@@ -63,5 +63,11 @@ namespace RentApi.Models
 
         [ForeignKey("ViewingSlotId")]
         public virtual HouseViewingAvailableSlot? ViewingSlot { get; set; }
+
+        public string ApplicationFlowType { get; set; } = "new";
+
+        public int AttemptNo { get; set; } = 1;
+
+        public int MaxAttemptCount { get; set; } = 3;
     }
 }

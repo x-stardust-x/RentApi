@@ -24,13 +24,6 @@ namespace RentApi.Models.DTO
         public int MatchScore { get; set; }
     }
 
-    public class LesseeProfileTagDto
-    {
-        public string Label { get; set; } = string.Empty;
-
-        public string Source { get; set; } = "habit";
-    }
-
 
 
 

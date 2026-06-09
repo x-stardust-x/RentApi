@@ -681,6 +681,10 @@ namespace RentApi.Controllers
                         v.RescheduleEndTime,
                         v.RescheduleMessage,
                         v.RescheduleCount,
+
+                        ApplicationFlowType = v.ApplicationFlowType,
+                        AttemptNo = v.AttemptNo,
+                        MaxAttemptCount = v.MaxAttemptCount,
                     }
                 ).ToListAsync();
 
@@ -749,7 +753,13 @@ namespace RentApi.Controllers
                     MatchScore = v.MatchScore ?? 0,
 
 
+                    ApplicationFlowType = string.IsNullOrWhiteSpace(v.ApplicationFlowType)
+                        ? "new"
+                        : v.ApplicationFlowType,
 
+                    AttemptNo = v.AttemptNo <= 0 ? 1 : v.AttemptNo,
+
+                    MaxAttemptCount = v.MaxAttemptCount <= 0 ? 3 : v.MaxAttemptCount,
 
                     RescheduleInfo = v.RescheduleProposedTime.HasValue
                         ? new RescheduleInfoDto
@@ -810,6 +820,8 @@ namespace RentApi.Controllers
 
                     select new
                     {
+                        HouseId = v.HouseId,
+
                         v.Id,
                         v.ReservationNo,
                         v.Status,
@@ -826,15 +838,22 @@ namespace RentApi.Controllers
                             .Select(img => img.Url)
                             .FirstOrDefault(),
 
+                        LessorId = lessor != null ? lessor.Id : 0,
+                        LessorAccountId = lessor != null ? (int?)lessor.AccountId : null,
+
                         LessorName = lessor != null && !string.IsNullOrWhiteSpace(lessor.RealName)
                             ? lessor.RealName
                             : "未知出租人",
 
+                        LessorAvatar = lessor != null ? lessor.Avatar : "",
                         LessorPhone = lessor != null ? lessor.Phone : "",
                         LessorLineId = lessor != null ? lessor.LineId : "",
 
                         v.ViewingTime,
+                        v.ExpectedMoveIn,
+                        v.ExpectedMoveInText,
                         v.PreferredTimeSlotsJson,
+                        v.LesseeProfileTagsJson,
                         v.Message,
                         v.MatchScore,
 
@@ -850,72 +869,93 @@ namespace RentApi.Controllers
                     Id = v.Id.ToString(),
 
                     OrderNumber = string.IsNullOrWhiteSpace(v.ReservationNo)
-                        ? $"B-FIX-{v.Id}"
-                        : v.ReservationNo,
+        ? $"B-FIX-{v.Id}"
+        : v.ReservationNo,
 
                     Status = (v.Status ?? 0) == 1 ? "confirmed" :
-                             (v.Status ?? 0) == 2 ? "rejected" :
-                             (v.Status ?? 0) == 3 ? "rescheduled" :
-                             "pending",
+             (v.Status ?? 0) == 2 ? "rejected" :
+             (v.Status ?? 0) == 3 ? "rescheduled" :
+             "pending",
+
+                    HouseId = v.HouseId,
 
                     RoomName = string.IsNullOrWhiteSpace(v.RoomName)
-                        ? "未知房源"
-                        : v.RoomName,
+        ? "未知房源"
+        : v.RoomName,
 
                     RoomAddress = string.IsNullOrWhiteSpace(v.RoomAddress)
-                        ? "尚未提供地址"
-                        : v.RoomAddress,
+        ? "尚未提供地址"
+        : v.RoomAddress,
 
                     CoverUrl = string.IsNullOrWhiteSpace(v.CoverUrl)
-                        ? "images/default-room.jpg"
-                        : v.CoverUrl,
+        ? ""
+        : v.CoverUrl,
 
                     RentPrice = v.RentPrice,
 
+                    LessorId = v.LessorId,
+                    LessorAccountId = v.LessorAccountId,
+
+                    // 你的 lessor-profile 頁面目前看起來是吃 accountId，
+                    // 所以優先用 AccountId；沒有時才退回 User.Id。
+                    LessorProfileId = v.LessorAccountId ?? v.LessorId,
+
                     LessorName = string.IsNullOrWhiteSpace(v.LessorName)
-                        ? "未知出租人"
-                        : v.LessorName,
+        ? "未知出租人"
+        : v.LessorName,
+
+                    LessorAvatar = string.IsNullOrWhiteSpace(v.LessorAvatar)
+        ? ""
+        : v.LessorAvatar,
 
                     LessorPhone = string.IsNullOrWhiteSpace(v.LessorPhone)
-                        ? "未填寫"
-                        : v.LessorPhone,
+        ? "未填寫"
+        : v.LessorPhone,
 
                     LessorLineId = string.IsNullOrWhiteSpace(v.LessorLineId)
-                        ? "未填寫"
-                        : v.LessorLineId,
+        ? "未填寫"
+        : v.LessorLineId,
 
                     ViewingDate = v.ViewingTime.HasValue
-                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd")
-                        : "尚未選擇日期",
+        ? v.ViewingTime.Value.ToString("yyyy/MM/dd")
+        : "尚未選擇日期",
 
                     ViewingDateTime = v.ViewingTime.HasValue
-                        ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
-                        : "尚未選擇時間",
+        ? v.ViewingTime.Value.ToString("yyyy/MM/dd HH:mm")
+        : "尚未選擇時間",
 
                     PreferredTimeSlots = ParsePreferredTimeSlots(v.PreferredTimeSlotsJson),
 
+                    ExpectedMoveInText = !string.IsNullOrWhiteSpace(v.ExpectedMoveInText)
+        ? v.ExpectedMoveInText
+        : v.ExpectedMoveIn.HasValue
+            ? v.ExpectedMoveIn.Value.ToString("yyyy/MM/dd")
+            : "尚未填寫",
+
+                    LesseeProfileTags = ParseLesseeProfileTags(v.LesseeProfileTagsJson),
+
                     Message = string.IsNullOrWhiteSpace(v.Message)
-                        ? "無留言"
-                        : v.Message,
+        ? "無留言"
+        : v.Message,
 
                     MatchScore = v.MatchScore ?? 0,
 
                     RejectReason = string.IsNullOrWhiteSpace(v.RejectReason)
-                        ? ""
-                        : v.RejectReason,
+        ? ""
+        : v.RejectReason,
 
                     RescheduleInfo = v.RescheduleProposedTime.HasValue
-                        ? new RescheduleInfoDto
-                        {
-                            ProposedViewingDateTime =
-                                v.RescheduleEndTime.HasValue
-                                    ? $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm} - {v.RescheduleEndTime.Value:HH:mm}"
-                                    : $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm}",
+        ? new RescheduleInfoDto
+        {
+            ProposedViewingDateTime =
+                v.RescheduleEndTime.HasValue
+                    ? $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm} - {v.RescheduleEndTime.Value:HH:mm}"
+                    : $"{v.RescheduleProposedTime.Value:yyyy/MM/dd HH:mm}",
 
-                            Message = v.RescheduleMessage ?? "",
-                            Count = v.RescheduleCount
-                        }
-                        : null
+            Message = v.RescheduleMessage ?? "",
+            Count = v.RescheduleCount
+        }
+        : null
                 }).ToList();
 
                 return Ok(applications);
@@ -1094,6 +1134,209 @@ namespace RentApi.Controllers
                 reservationId = reservation.Id,
                 status = "rescheduled"
             });
+        }
+
+        private static List<string> ParseLesseeProfileTags(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var result = new List<string>();
+
+                if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                {
+                    return result;
+                }
+
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    if (item.TryGetProperty("label", out var labelProp))
+                    {
+                        var label = labelProp.GetString();
+
+                        if (!string.IsNullOrWhiteSpace(label))
+                        {
+                            result.Add(label);
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        [Authorize]
+        [HttpPut("reselect-time")]
+        public async Task<IActionResult> ReselectViewingTime([FromBody] ReselectViewingTimeDto dto)
+        {
+            try
+            {
+                var currentUser = await GetCurrentUserAsync();
+
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "請先登入" });
+                }
+
+                var reservation = await _context.HouseViewings
+                    .FirstOrDefaultAsync(v => v.Id == dto.ReservationId);
+
+                if (reservation == null)
+                {
+                    return NotFound(new { message = "找不到此預約單" });
+                }
+
+                if (reservation.LesseeId != currentUser.Id)
+                {
+                    return Forbid();
+                }
+
+                if ((reservation.Status ?? 0) != 3)
+                {
+                    return BadRequest(new { message = "只有房東提議改期中的預約可以重新選擇時段" });
+                }
+
+                if (dto.ViewingSlotId.HasValue)
+                {
+                    var selectedSlot = await _context.HouseViewingAvailableSlots
+                        .FirstOrDefaultAsync(s =>
+                            s.Id == dto.ViewingSlotId.Value &&
+                            s.HouseId == reservation.HouseId &&
+                            s.IsEnabled);
+
+                    if (selectedSlot == null)
+                    {
+                        return BadRequest(new { message = "選擇的看房時段不存在或已停用" });
+                    }
+                }
+
+                reservation.ViewingSlotId = dto.ViewingSlotId;
+                reservation.ViewingTime = dto.ViewingTime;
+
+                reservation.ExpectedMoveIn = dto.ExpectedMoveIn ?? reservation.ExpectedMoveIn;
+                reservation.ExpectedMoveInText = dto.ExpectedMoveInText;
+
+                reservation.PreferredTimeSlotsJson = JsonSerializer.Serialize(dto.PreferredTimeSlots ?? new List<string>());
+                reservation.LesseeProfileTagsJson = JsonSerializer.Serialize(dto.LesseeProfileTags ?? new List<LesseeProfileTagDto>());
+
+                reservation.Message = dto.Message;
+                reservation.MatchScore = dto.MatchScore ?? reservation.MatchScore;
+
+                // 關鍵：承租人重新選擇後，回到出租人待審核
+                reservation.Status = 0;
+                reservation.UpdatedAt = DateTime.Now;
+
+                reservation.ApplicationFlowType = "reselect_time";
+
+                reservation.AttemptNo = reservation.AttemptNo <= 0
+                    ? 1
+                    : reservation.AttemptNo;
+
+                reservation.MaxAttemptCount = reservation.MaxAttemptCount <= 0
+                    ? 3
+                    : reservation.MaxAttemptCount;
+
+                // 清除上一輪房東提議改期內容，避免前端仍顯示舊改期訊息
+                reservation.RescheduleProposedTime = null;
+                reservation.RescheduleEndTime = null;
+                reservation.RescheduleMessage = null;
+
+                reservation.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "已重新送出看房時段，等待出租人審核",
+                    reservationId = reservation.Id,
+                    status = "pending"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "重新選擇時段失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPut("accept-reschedule/{reservationId:int}")]
+        public async Task<IActionResult> AcceptReschedule(int reservationId)
+        {
+            try
+            {
+                var currentUser = await GetCurrentUserAsync();
+
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "請先登入" });
+                }
+
+                var reservation = await _context.HouseViewings
+                    .FirstOrDefaultAsync(v => v.Id == reservationId);
+
+                if (reservation == null)
+                {
+                    return NotFound(new { message = "找不到此預約單" });
+                }
+
+                // 只能承租人本人接受改期
+                if (reservation.LesseeId != currentUser.Id)
+                {
+                    return Forbid();
+                }
+
+                // 只有房東已提出改期中的預約可以接受
+                if ((reservation.Status ?? 0) != 3)
+                {
+                    return BadRequest(new { message = "此預約目前不是待回覆改期狀態" });
+                }
+
+                if (!reservation.RescheduleProposedTime.HasValue)
+                {
+                    return BadRequest(new { message = "此預約沒有房東提議的改期時間" });
+                }
+
+                // 接受房東改期：正式確認預約
+                reservation.Status = 1;
+
+                // 將最終看房時間改成房東提議的時間
+                reservation.ViewingTime = reservation.RescheduleProposedTime.Value;
+
+                // 保留紀錄用：代表這筆是接受改期後確認
+                reservation.ApplicationFlowType = "reschedule_accepted";
+
+                reservation.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "已接受改期，預約已確認",
+                    reservationId = reservation.Id,
+                    status = "confirmed"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "接受改期失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
         }
     }
 }
