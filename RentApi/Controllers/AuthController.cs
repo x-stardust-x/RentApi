@@ -33,6 +33,11 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
+            if (res.isDelete == true) {
+                return Unauthorized(new {
+                    message = "帳號已刪除"
+                });
+            }
             if (res.Pwd != dto.Pwd) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
@@ -74,6 +79,11 @@ namespace RentApi.Controllers {
             if (res == null) {
                 return Unauthorized(new {
                     message = "帳號不存在"
+                });
+            }
+            if(res.IsDelete == true) {
+                return Unauthorized(new {
+                    message = "帳號已刪除"
                 });
             }
             var user = _db.User.FirstOrDefault(a => a.AccountId == res.Id);

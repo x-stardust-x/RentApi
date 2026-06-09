@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models.DTO;
 using RentApi.Services;
-using Microsoft.AspNetCore.Authorization;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace RentApi.Controllers {
     [Route("api/[controller]")]
@@ -75,6 +76,22 @@ namespace RentApi.Controllers {
             if (result == null)
                 return NotFound("Account settings not found");
             return Ok(result);
+        }
+        [HttpPut("update-email/{userId}")]
+        public async Task<IActionResult> UpdateEmail(int userId, [FromBody] UpdateEmailDto dto) {
+            var result = await _service.ChangeEmailAsync(userId, dto.Email);
+            if(!result) {
+                return NotFound("User not found");
+            }
+            return Ok();
+        }
+        [HttpPut("update-pwd/{userId}")]
+        public async Task<IActionResult> UpdatePwd(int userId, [FromBody] UpdatePwdDto dto) {
+            var result = await _service.ChangePwdAsync(userId, dto.Pwd);
+            if (!result) {
+                return NotFound("User not found");
+            }
+            return Ok();
         }
     }
 }

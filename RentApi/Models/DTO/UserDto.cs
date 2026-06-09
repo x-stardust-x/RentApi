@@ -33,4 +33,10 @@
 
         public DateTime? LastLoginAt { get; set; }
     }
+    public class UpdateEmailDto {
+        public string Email { get; set; } = string.Empty;
+    }
+    public class UpdatePwdDto {
+        public string Pwd { get; set; } = string.Empty;
+    }
 }
