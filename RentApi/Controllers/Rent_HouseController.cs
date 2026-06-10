@@ -156,23 +156,78 @@ namespace RentApi.Controllers
         }
 
         // 3. 取得單一房屋詳細資料
-        [HttpGet("{id:int}")] 
+        [HttpGet("{id:int}")]
         public IActionResult GetHouseById(int id)
         {
             var house = _context.Rent_Houses
-                        .Include(h => h.HouseImages) 
-                        .FirstOrDefault(h => h.Id == id);
+                .Include(h => h.HouseImages)
+                .FirstOrDefault(h => h.Id == id);
 
-            if (house == null) return NotFound("找不到這間房子喔！");
-            return Ok(house);
+            if (house == null)
+            {
+                return NotFound("找不到這間房子喔！");
+            }
+
+            var rule = _context.HouseRules
+                .FirstOrDefault(r => r.HouseId == id);
+
+            return Ok(new
+            {
+                house.Id,
+                house.AccountId,
+                house.DistrictId,
+                house.Name,
+                house.Address,
+                house.Description,
+                house.RentPrice,
+                house.IncludeUtilities,
+                house.IncludeWifi,
+                house.IncludeManagementFee,
+                house.AreaSize,
+                house.LeaseTerm,
+                house.FloorInfo,
+                house.HouseType,
+                house.Status,
+
+                SleepTime = rule != null && rule.SleepTime.HasValue
+                    ? rule.SleepTime.Value.ToString("HH:mm")
+                    : "23:30",
+
+                WakeTime = rule != null && rule.WakeTime.HasValue
+                    ? rule.WakeTime.Value.ToString("HH:mm")
+                    : "07:00",
+                CleanLevel = rule != null ? rule.CleanLevel : 3,
+                NoiseTolerance = rule != null ? rule.NoiseTolerance : 3,
+                Pet = rule?.Pet ?? false,
+                Smoke = rule?.Smoke ?? false,
+                //Interests = rule != null ? rule.Interests : "",
+                AdvancedRules = rule != null ? rule.AdvancedRules : "",
+
+                Images = house.HouseImages.Select(img => new
+                {
+                    img.Id,
+                    img.Url,
+                    img.IsCover
+                }).ToList()
+            });
         }
-          
+
         //  4. 修改房屋資料 
         [HttpPut("{id:int}")] 
         public IActionResult UpdateHouse(int id, [FromBody] CreateHouseDto request)
         {
             var house = _context.Rent_Houses.Find(id);
+            var rule = _context.HouseRules.FirstOrDefault(r => r.HouseId == id);
             if (house == null) return NotFound("找不到要修改的房子！");
+            if (rule == null)
+            {
+                rule = new HouseRules
+                {
+                    HouseId = id
+                };
+
+                _context.HouseRules.Add(rule);
+            }
 
             // 基本資料
             house.DistrictId = request.DistrictId;
@@ -192,6 +247,26 @@ namespace RentApi.Controllers
             house.Status = request.Status;
 
             house.Status = 0;
+
+            var houseRule = _context.HouseRules.FirstOrDefault(r => r.HouseId == id);
+
+            if (houseRule == null)
+            {
+                houseRule = new HouseRules
+                {
+                    HouseId = id
+                };
+
+                _context.HouseRules.Add(houseRule);
+            }
+
+            houseRule.SleepTime = request.SleepTime;
+            houseRule.WakeTime = request.WakeTime;
+            houseRule.CleanLevel = request.CleanLevel;
+            houseRule.NoiseTolerance = request.NoiseTolerance;
+            houseRule.Pet = request.Pet;
+            houseRule.Smoke = request.Smoke;
+            houseRule.AdvancedRules = request.AdvancedRules ?? string.Empty;
 
             _context.SaveChanges();
             return Ok(new { Message = "房屋資料更新成功！", HouseData = house });

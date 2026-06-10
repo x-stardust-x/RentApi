@@ -342,7 +342,7 @@ namespace RentApi.Services
                     var lifestyles = request.LifeStyle.Select(l => l.Trim()).ToList();
                     if (lifestyles.Contains("禁菸")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Smoke == false);
                     if (lifestyles.Contains("可養寵物")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Pet == true);
-                    if (lifestyles.Contains("追求安靜")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.NoiseTolerance <= 2);
+                    if (lifestyles.Contains("安靜")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.NoiseTolerance <= 2);
                 }
 
                 // 2. 作息型態
