@@ -69,5 +69,13 @@ namespace RentApi.Models
         public int AttemptNo { get; set; } = 1;
 
         public int MaxAttemptCount { get; set; } = 3;
+
+        public DateTime? MatchedAt { get; set; }
+
+        public int? MatchedByUserId { get; set; }
+
+        public string? MatchNote { get; set; }
+
+        public string? ClosedReason { get; set; }
     }
 }

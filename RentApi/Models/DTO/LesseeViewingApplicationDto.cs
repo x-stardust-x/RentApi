@@ -33,5 +33,14 @@
         public string RejectReason { get; set; } = string.Empty;
 
         public RescheduleInfoDto? RescheduleInfo { get; set; }
+
+        public DateTime? MatchedAt { get; set; }
+        public string MatchNote { get; set; } = string.Empty;
+        public string ClosedReason { get; set; } = string.Empty;
+
+        public string ApplicationFlowType { get; set; } = "new";
+        public int AttemptNo { get; set; } = 1;
+        public int MaxAttemptCount { get; set; } = 3;
+
     }
 }

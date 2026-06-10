@@ -58,6 +58,11 @@ namespace RentApi.Controllers
                     return BadRequest(new { message = $"找不到 ID 為 {dto.HouseId} 的房屋資料" });
                 }
 
+                if (!house.IsVisible || house.RentalStatus == "matched")
+                {
+                    return BadRequest(new { message = "此房源已媒合或已下架，無法再送出看房申請" });
+                }
+
                 //var lessorUser = await _context.User.FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
 
                 var lessorUser = await _context.User
@@ -263,7 +268,10 @@ namespace RentApi.Controllers
 
                         Message = v.Message,
 
-                        MatchScore = (int?)v.MatchScore
+                        MatchScore = (int?)v.MatchScore,
+                        v.MatchedAt,
+                        v.MatchNote,
+                        v.ClosedReason,
                     }
                 ).ToListAsync();
 
@@ -305,7 +313,10 @@ namespace RentApi.Controllers
                         ? "無留言"
                         : v.Message,
 
-                    MatchScore = v.MatchScore ?? 0
+                    MatchScore = v.MatchScore ?? 0,
+                    MatchedAt = v.MatchedAt,
+                    MatchNote = v.MatchNote ?? "",
+                    ClosedReason = v.ClosedReason ?? "",
                 }).ToList();
 
                 return Ok(approvals);
@@ -517,6 +528,7 @@ namespace RentApi.Controllers
                 {
                     return NotFound(new { message = "找不到房源資料" });
                 }
+                          
 
                 var lessorUser = await _context.User
                     .FirstOrDefaultAsync(u => u.AccountId == house.AccountId);
@@ -682,9 +694,13 @@ namespace RentApi.Controllers
                         v.RescheduleMessage,
                         v.RescheduleCount,
 
-                        ApplicationFlowType = v.ApplicationFlowType,
-                        AttemptNo = v.AttemptNo,
-                        MaxAttemptCount = v.MaxAttemptCount,
+                        v.ApplicationFlowType,
+                        v.AttemptNo,
+                        v.MaxAttemptCount,
+
+                        v.MatchedAt,
+                        v.MatchNote,
+                        v.ClosedReason
                     }
                 ).ToListAsync();
 
@@ -697,9 +713,11 @@ namespace RentApi.Controllers
                         : v.ReservationNo,
 
                     Status = (v.Status ?? 0) == 1 ? "confirmed" :
-                             (v.Status ?? 0) == 2 ? "rejected" :
-                             (v.Status ?? 0) == 3 ? "rescheduled" :
-                             "pending",
+                        (v.Status ?? 0) == 2 ? "rejected" :
+                        (v.Status ?? 0) == 3 ? "rescheduled" :
+                        (v.Status ?? 0) == 4 ? "matched" :
+                        (v.Status ?? 0) == 5 ? "closed" :
+                        "pending",
 
                     RoomName = string.IsNullOrWhiteSpace(v.RoomName)
                         ? "未知房源"
@@ -860,7 +878,15 @@ namespace RentApi.Controllers
                         v.RescheduleProposedTime,
                         v.RescheduleEndTime,
                         v.RescheduleMessage,
-                        v.RescheduleCount
+                        v.RescheduleCount,
+
+                        v.ApplicationFlowType,
+                        v.AttemptNo,
+                        v.MaxAttemptCount,
+
+                        v.MatchedAt,
+                        v.MatchNote,
+                        v.ClosedReason
                     }
                 ).ToListAsync();
 
@@ -875,7 +901,21 @@ namespace RentApi.Controllers
                     Status = (v.Status ?? 0) == 1 ? "confirmed" :
              (v.Status ?? 0) == 2 ? "rejected" :
              (v.Status ?? 0) == 3 ? "rescheduled" :
+             (v.Status ?? 0) == 4 ? "matched" :
+             (v.Status ?? 0) == 5 ? "closed" :
              "pending",
+
+                    ApplicationFlowType = string.IsNullOrWhiteSpace(v.ApplicationFlowType)
+        ? "new"
+        : v.ApplicationFlowType,
+
+                    AttemptNo = v.AttemptNo <= 0 ? 1 : v.AttemptNo,
+
+                    MaxAttemptCount = v.MaxAttemptCount <= 0 ? 3 : v.MaxAttemptCount,
+
+                    MatchedAt = v.MatchedAt,
+                    MatchNote = v.MatchNote ?? "",
+                    ClosedReason = v.ClosedReason ?? "",
 
                     HouseId = v.HouseId,
 
@@ -895,9 +935,6 @@ namespace RentApi.Controllers
 
                     LessorId = v.LessorId,
                     LessorAccountId = v.LessorAccountId,
-
-                    // 你的 lessor-profile 頁面目前看起來是吃 accountId，
-                    // 所以優先用 AccountId；沒有時才退回 User.Id。
                     LessorProfileId = v.LessorAccountId ?? v.LessorId,
 
                     LessorName = string.IsNullOrWhiteSpace(v.LessorName)
@@ -1334,6 +1371,212 @@ namespace RentApi.Controllers
                 return StatusCode(500, new
                 {
                     message = "接受改期失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPut("reapply")]
+        public async Task<IActionResult> ReapplyViewingOrder([FromBody] ReapplyViewingOrderDto dto)
+        {
+            try
+            {
+                var currentUser = await GetCurrentUserAsync();
+
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "請先登入" });
+                }
+
+                var reservation = await _context.HouseViewings
+                    .FirstOrDefaultAsync(v => v.Id == dto.ReservationId);
+
+                if (reservation == null)
+                {
+                    return NotFound(new { message = "找不到此預約單" });
+                }
+
+                if (reservation.LesseeId != currentUser.Id)
+                {
+                    return Forbid();
+                }
+
+                if ((reservation.Status ?? 0) != 2)
+                //if (reservation.Status != 2)
+                {
+                    return BadRequest(new { message = "只有已婉拒的預約可以重新申請" });
+                }
+
+                var currentAttemptNo = reservation.AttemptNo <= 0 ? 1 : reservation.AttemptNo;
+                var maxAttemptCount = reservation.MaxAttemptCount <= 0 ? 3 : reservation.MaxAttemptCount;
+
+                if (currentAttemptNo >= maxAttemptCount)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"此預約已達重新申請上限，最多可申請 {maxAttemptCount} 次"
+                    });
+                }
+
+                if (dto.ViewingSlotId.HasValue)
+                {
+                    var selectedSlot = await _context.HouseViewingAvailableSlots
+                        .FirstOrDefaultAsync(s =>
+                            s.Id == dto.ViewingSlotId.Value &&
+                            s.HouseId == reservation.HouseId &&
+                            s.IsEnabled);
+
+                    if (selectedSlot == null)
+                    {
+                        return BadRequest(new { message = "選擇的看房時段不存在或已停用" });
+                    }
+                }
+
+                reservation.ViewingSlotId = dto.ViewingSlotId;
+                reservation.ViewingTime = dto.ViewingTime;
+
+                reservation.ExpectedMoveIn = dto.ExpectedMoveIn ?? reservation.ExpectedMoveIn;
+                reservation.ExpectedMoveInText = dto.ExpectedMoveInText;
+
+                reservation.PreferredTimeSlotsJson = JsonSerializer.Serialize(dto.PreferredTimeSlots ?? new List<string>());
+                reservation.LesseeProfileTagsJson = JsonSerializer.Serialize(dto.LesseeProfileTags ?? new List<LesseeProfileTagDto>());
+
+                reservation.Message = dto.Message;
+                reservation.MatchScore = dto.MatchScore ?? reservation.MatchScore;
+
+                // 關鍵：重新申請後回到出租人待審核
+                reservation.Status = 0;
+                reservation.ApplicationFlowType = "reapply";
+                reservation.AttemptNo = currentAttemptNo + 1;
+                reservation.MaxAttemptCount = maxAttemptCount;
+
+                // 清除舊的婉拒原因與改期資訊，避免前端誤顯示
+                reservation.RejectReason = null;
+                reservation.RescheduleProposedTime = null;
+                reservation.RescheduleEndTime = null;
+                reservation.RescheduleMessage = null;
+
+                reservation.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "已重新送出申請，等待出租人審核",
+                    reservationId = reservation.Id,
+                    status = "pending",
+                    attemptNo = reservation.AttemptNo,
+                    maxAttemptCount = reservation.MaxAttemptCount
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "重新申請失敗",
+                    details = ex.InnerException?.Message ?? ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPut("confirm-match")]
+        public async Task<IActionResult> ConfirmMatch([FromBody] ConfirmMatchDto dto)
+        {
+            try
+            {
+                var currentUser = await GetCurrentUserAsync();
+
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { message = "請先登入" });
+                }
+
+                var reservation = await _context.HouseViewings
+                    .FirstOrDefaultAsync(v => v.Id == dto.ReservationId);
+
+                if (reservation == null)
+                {
+                    return NotFound(new { message = "找不到此預約單" });
+                }
+
+                if (reservation.LessorId != currentUser.Id)
+                {
+                    return Forbid();
+                }
+
+                if ((reservation.Status ?? 0) != 1)
+                {
+                    return BadRequest(new { message = "只有已確認的預約可以確認媒合" });
+                }
+
+                var house = await _context.Rent_Houses
+                    .FirstOrDefaultAsync(h => h.Id == reservation.HouseId);
+
+                if (house == null)
+                {
+                    return NotFound(new { message = "找不到此房源" });
+                }
+
+                var now = DateTime.Now;
+
+                // 1. 將本筆預約標記為媒合成功
+                reservation.Status = 4;
+                reservation.MatchedAt = now;
+                reservation.MatchedByUserId = currentUser.Id;
+                reservation.MatchNote = dto.MatchNote;
+                reservation.ApplicationFlowType = "matched";
+                reservation.UpdatedAt = now;
+
+                // 2. 同步標記房源已媒合 / 下架
+                if (dto.MarkHouseAsMatched)
+                {
+                    house.RentalStatus = "matched";
+                    house.MatchedViewingOrderId = reservation.Id;
+                    house.MatchedAt = now;
+                    house.IsVisible = false;
+                }
+
+                // 3. 關閉同房源其他尚未結束的預約
+                if (dto.CloseOtherReservations)
+                {
+                    var otherReservations = await _context.HouseViewings
+                        .Where(v =>
+                            v.HouseId == reservation.HouseId &&
+                            v.Id != reservation.Id &&
+                            (
+                                v.Status == 0 ||
+                                v.Status == 1 ||
+                                v.Status == 3
+                            ))
+                        .ToListAsync();
+
+                    foreach (var other in otherReservations)
+                    {
+                        other.Status = 5;
+                        other.ClosedReason = "此房源已完成媒合，申請已關閉";
+                        other.UpdatedAt = now;
+                        other.ApplicationFlowType = "closed_by_match";
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "已確認媒合成功",
+                    reservationId = reservation.Id,
+                    status = "matched",
+                    houseId = reservation.HouseId,
+                    houseStatus = house.RentalStatus
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "確認媒合失敗",
                     details = ex.InnerException?.Message ?? ex.Message
                 });
             }

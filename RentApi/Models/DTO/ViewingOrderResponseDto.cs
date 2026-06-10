@@ -18,5 +18,9 @@
         public string ApplicationFlowType { get; set; } = "new";
         public int AttemptNo { get; set; } = 1;
         public int MaxAttemptCount { get; set; } = 3;
+
+        public DateTime? MatchedAt { get; set; }
+        public string MatchNote { get; set; } = string.Empty;
+        public string ClosedReason { get; set; } = string.Empty;
     }
 }
