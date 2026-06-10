@@ -44,5 +44,9 @@ namespace RentApi.Models
         [InverseProperty("RentHouse")]
         public virtual ICollection<HouseViewing> HouseViewings { get; set; } = new List<HouseViewing>();
 
+        public string RentalStatus { get; set; } = "available";
+        public int? MatchedViewingOrderId { get; set; }
+        public DateTime? MatchedAt { get; set; }
+        public bool IsVisible { get; set; } = true;
     }
 }

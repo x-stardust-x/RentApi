@@ -11,7 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace CoLiving.Controllers
+namespace RentApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -75,9 +75,15 @@ namespace CoLiving.Controllers
         public IActionResult GetAllHouses()
         {
             var result = (from h in _context.Rent_Houses
-                              // 🎯 關鍵連動：利用 house 的 DistrictId 去關聯地點表！
+                              // 🎯 連動 1：利用 house 的 DistrictId 去關聯地點表
                           join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locations
                           from loc in locations.DefaultIfEmpty()
+
+                              // 🌟 核心修正：連動 2：利用 house 的 AccountId 去關聯會員帳號表 (假設資料表叫 Accounts)
+                              // (💡 如果你的帳號表在 DbContext 裡叫 Users 或 Members，請自行把下面的 Accounts 改掉喔！)
+                          join acc in _context.Account on h.AccountId equals acc.Id into accounts
+                          from acc in accounts.DefaultIfEmpty()
+
                           select new
                           {
                               h.Id,
@@ -88,9 +94,13 @@ namespace CoLiving.Controllers
                               h.AreaSize,
                               h.Status,
                               Description = h.Description,
-                              // 🌟 實打實地把縣市與區域名稱抓出來，吐給前端審核與媒合頁面！
                               CityName = loc != null ? loc.CityName : "",
                               DistrictName = loc != null ? loc.DistrictName : "",
+
+
+                              UserName = acc != null ? acc.Username : "神祕房東", 
+                              UserAvatar = "",
+
                               // 抓取生活公約
                               SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
                               WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
@@ -102,8 +112,8 @@ namespace CoLiving.Controllers
                               FloorInfo = h.FloorInfo,
                               IncludeUtilities = h.IncludeUtilities,
                               IncludeWifi = h.IncludeWifi,
-                              IncludeManagememtFee = h.IncludeManagementFee,
-                              // 📸 精準抓取照片關聯
+                              IncludeManagememtFee = h.IncludeManagementFee, 
+
                               CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
                               Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
                           }).ToList();
@@ -314,6 +324,8 @@ public class CreateHouseDto
         public string Address { get; set; }
         public string Description { get; set; }
         public int RentPrice { get; set; }
+        
+       
 
         //  新增對應 bit 的 bool
         public bool IncludeUtilities { get; set; }

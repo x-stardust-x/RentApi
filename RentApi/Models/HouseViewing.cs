@@ -36,7 +36,46 @@ namespace RentApi.Models
 
         public DateTime? UpdatedAt { get; set; } // 補上欄位
 
+        public int? ViewingSlotId { get; set; }
+
+        public string? ExpectedMoveInText { get; set; }
+
+        public string? PreferredTimeSlotsJson { get; set; }
+
+        public string? LesseeProfileTagsJson { get; set; }
+
+
+
+        public DateTime? RescheduleProposedTime { get; set; }
+
+        public DateTime? RescheduleEndTime { get; set; }
+
+        public string? RescheduleMessage { get; set; }
+
+        public int RescheduleCount { get; set; }
+
+        public DateTime? LastRescheduleAt { get; set; }
+
+
+
         [ForeignKey("HouseId")]
         public virtual Rent_House RentHouse { get; set; }
+
+        [ForeignKey("ViewingSlotId")]
+        public virtual HouseViewingAvailableSlot? ViewingSlot { get; set; }
+
+        public string ApplicationFlowType { get; set; } = "new";
+
+        public int AttemptNo { get; set; } = 1;
+
+        public int MaxAttemptCount { get; set; } = 3;
+
+        public DateTime? MatchedAt { get; set; }
+
+        public int? MatchedByUserId { get; set; }
+
+        public string? MatchNote { get; set; }
+
+        public string? ClosedReason { get; set; }
     }
 }
