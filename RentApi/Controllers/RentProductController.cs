@@ -50,6 +50,11 @@ namespace CoLiving.Controllers
         public IActionResult GetAllProductsForAdmin()
         {
             var result = (from p in _context.Rent_Products
+
+                             
+                          join acc in _context.Account on p.AccountId equals acc.Id into accounts
+                          from acc in accounts.DefaultIfEmpty()
+
                           select new
                           {
                               p.Id,
@@ -59,13 +64,18 @@ namespace CoLiving.Controllers
                               p.PriceUnit,
                               p.Description,
                               p.Address,
-                              p.Status, // 🌟 前端過濾就靠這個！
-                              CoverUrl = _context.Product_Image.Where(img => img.ProductId == p.Id && img.IsCover).Select(img => img.Url).FirstOrDefault()
+                              p.Status,
+                              CoverUrl = _context.Product_Image.Where(img => img.ProductId == p.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
+
+                             
+                              UserName = acc != null ? acc.Username : "神祕會員",
+                              UserAvatar = ""
                           }).ToList();
+
             return Ok(result);
         }
 
-        
+
         // ==========================================
         // ✨ 3. 新增 (Create)
         // ==========================================
@@ -257,18 +267,51 @@ namespace CoLiving.Controllers
             }
         }
 
+        // ==========================================
+        // 🔍 取得單一資產/技能詳細資料 (終極安全防護版)
+        // ==========================================
         [HttpGet("{id}")]
         public IActionResult GetProductById(int id)
         {
-           
-            var product = _context.Rent_Products
-                                  .Include(p => p.ProductImages) 
-                                  .FirstOrDefault(p => p.Id == id);
+            // 1. 只撈取文字欄位，不使用 .Include 避免資料庫物件連鎖崩潰
+            var p = _context.Rent_Products.FirstOrDefault(x => x.Id == id);
 
-            if (product == null) return NotFound("找不到該項資產或技能！");
+            if (p == null) return NotFound("找不到該項資產或技能！");
 
-            return Ok(product);
-        }
+            // 2. 乾淨撈取照片清單
+            var oldPhotos = _context.Product_Image
+                                    .Where(img => img.ProductId == id)
+                                    .Select(img => new {
+                                        img.Id,
+                                        img.ProductId,
+                                        img.Url,
+                                        img.Description,
+                                        img.IsCover
+                                    }).ToList();
+
+            // 3. 🌟 終極安全牌：手動解構所有欄位！
+            // 這樣可以 100% 確保轉成 JSON 時是乾淨的 camelCase，且絕對不會有循環參考問題
+            return Ok(new
+            {
+                Product = new
+                {
+                    p.Id,
+                    p.AccountId,
+                    p.Name,
+                    p.Category,
+                    p.Description,
+                    p.Price,
+                    p.PriceUnit,
+                    p.Deposit,
+                    p.Status,
+                    p.Quantity,
+                    p.OwnTool,
+                    p.RequiredKnowledge,
+                    p.Address
+                },
+                Images = oldPhotos
+            });
+        }  
 
         [HttpGet("User/{accountId:int}")]
         public IActionResult GetProductsByAccountId(int accountId)
