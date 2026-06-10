@@ -24,6 +24,7 @@ namespace RentApi.Services {
                              Avatar = u.Avatar,
                              Address = u.Address,
                              Phone = u.Phone,
+                             LineId = u.LineId,
                              Bio = u.Bio,
                              Rating = u.Rating,
                              ReviewCount = u.ReviewCount,
@@ -55,6 +56,7 @@ namespace RentApi.Services {
                     EnglishName = u.EnglishName,
                     Avatar = u.Avatar,
                     Phone = u.Phone,
+                    LineId = u.LineId,
                     Address = u.Address,
                     Bio = u.Bio,
 
@@ -90,6 +92,7 @@ namespace RentApi.Services {
             res.EnglishName = dto.EnglishName;
             res.Avatar = dto.Avatar;
             res.Phone = dto.Phone;
+            res.LineId = dto.LineId;
             res.Address = dto.Address;
             res.Bio = dto.Bio;
 
@@ -194,7 +197,7 @@ namespace RentApi.Services {
                 select new {
                     email = a.Email,
                     phone = u.Phone,
-                    //lineId = u.LineId,
+                    lineId = u.LineId,
                 }
             ).FirstOrDefaultAsync();
 
