@@ -203,5 +203,25 @@ namespace RentApi.Services {
 
             return res;
         }
+
+        public Task<bool> ChangeEmailAsync(int userid, string email) {
+            var res = _db.Account.FirstOrDefault(x => x.Id == userid);
+            if (res == null) {
+                return Task.FromResult(false);
+            }
+            res.Email = email;
+            _db.SaveChanges();
+            return Task.FromResult(true);
+        }
+        public Task<bool> ChangePwdAsync(int userid, string pwd) {
+            var res = _db.Account.FirstOrDefault(x => x.Id == userid);
+            if (res == null) {
+                return Task.FromResult(false);
+            }
+            string hashedPwd = PasswordHelper.Hash(pwd);
+            res.Pwd = hashedPwd;
+            _db.SaveChanges();
+            return Task.FromResult(true);
+        }
     }
 }

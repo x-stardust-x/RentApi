@@ -10,7 +10,7 @@ namespace RentApi.Controllers {
     [ApiController]
     public class AdminController : ControllerBase {
         AppDbContext _context;
-        public AdminController(AppDbContext context) { 
+        public AdminController(AppDbContext context) {
             _context = context;
         }
         // GET: api/<AdminController>
@@ -72,13 +72,23 @@ namespace RentApi.Controllers {
             return Ok(existingAdmin);
         }
 
-        // DELETE api/<AdminController>/5
-        [HttpDelete("{id}")]
+        //Super 開關
+        [HttpPut("SuperOc/{id}")]
+        public IActionResult SuperOc(int id) {
+            var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
+            if (existingAdmin == null)
+                return NotFound();
+            existingAdmin.isSuper = !existingAdmin.isSuper;
+            _context.SaveChanges();
+            return Ok(existingAdmin);
+        }
+        // Delete(fake) api/<AdminController>/5
+        [HttpPut("delete/{id}")]
         public IActionResult Delete(int id) {
             var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
             if (existingAdmin == null)
                 return NotFound();
-            _context.Admin.Remove(existingAdmin);
+            existingAdmin.isDelete = true;
             _context.SaveChanges();
             return Ok(existingAdmin);
         }

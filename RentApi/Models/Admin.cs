@@ -5,5 +5,7 @@
         public string? Pwd { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
+        public bool isSuper { get; set; }
+        public bool isDelete { get; set; }
     }
 }
