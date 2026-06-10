@@ -68,5 +68,13 @@ namespace RentApi.Controllers {
 
             return Ok(result);
         }
+
+        [HttpGet("account-setting/{userId}")]
+        public async Task<IActionResult> GetAccountSetting(int userId) {
+            var result = await _service.GetAccountSettingAsync(userId);
+            if (result == null)
+                return NotFound("Account settings not found");
+            return Ok(result);
+        }
     }
 }
