@@ -72,21 +72,21 @@ namespace RentApi.Services {
                     WakeTime = h != null && h.WakeTime != null ? h.WakeTime.Value : TimeOnly.MinValue,
                     CleanLevel = h != null ? h.CleanLevel : 0,
                     NoiseTolerance = h != null ? h.NoiseTolerance : 0,
-                    Pet = h.Pet,
-                    Smoke = h.Smoke,
-                    Interests = h != null ? h.Interests : null
+                    Pet = h != null && (h.Pet ?? false),
+                    Smoke = h != null && (h.Smoke ?? false),
+                    Interests = h != null ? h.Interests ?? "" : ""
                 }
             ).FirstOrDefaultAsync();
         }
-        public async Task<UpdateProfileDto?> UpdateProfileAsync(UpdateProfileDto dto) {
+        public async Task<UpdateProfileDto?> UpdateProfileAsync(UpdateProfileDto dto)
+        {
             var res = await _db.User.FirstOrDefaultAsync(x => x.Id == dto.Id);
-            if(res == null) {
+
+            if (res == null)
+            {
                 return null;
             }
-            var res_habit = await _db.User_Habit.FirstOrDefaultAsync(x => x.UserId == dto.Id);
-            if(res_habit == null) {
-                return null;
-            }
+
             res.DistrictId = dto.DistrictId;
             res.RealName = dto.RealName;
             res.EnglishName = dto.EnglishName;
@@ -96,18 +96,32 @@ namespace RentApi.Services {
             res.Address = dto.Address;
             res.Bio = dto.Bio;
 
+            var res_habit = await _db.User_Habit
+                .FirstOrDefaultAsync(x => x.UserId == dto.Id);
+
+            if (res_habit == null)
+            {
+                res_habit = new User_Habit
+                {
+                    UserId = dto.Id
+                };
+
+                _db.User_Habit.Add(res_habit);
+            }
+
             res_habit.SleepTime = dto.SleepTime;
             res_habit.WakeTime = dto.WakeTime;
             res_habit.CleanLevel = dto.CleanLevel;
             res_habit.NoiseTolerance = dto.NoiseTolerance;
             res_habit.Pet = dto.Pet;
             res_habit.Smoke = dto.Smoke;
-            res_habit.Interests = dto.Interests;
+            res_habit.Interests = dto.Interests ?? "";
 
             await _db.SaveChangesAsync();
 
             return dto;
         }
+
         public Task<bool> ChangeStatusAsync(int userid) {
             var res = _db.Account.FirstOrDefault(x => x.Id == userid);
             if (res == null) {

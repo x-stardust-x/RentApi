@@ -26,5 +26,6 @@
         public DateTime? CreateAt { get; set; }
 
         public Account Account { get; set; }
+        //public string? Interests { get; set; }
     }
 }

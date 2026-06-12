@@ -28,7 +28,7 @@
         public int NoiseTolerance { get; set; } // 噪音容忍度 (1-5)
         public bool Pet { get; set; }           // 是否養/接受寵物
         public bool Smoke { get; set; }         // 是否抽菸
-        public string Interests { get; set; }   // 興趣標籤 (JSON 字串)
+        public string Interests { get; set; } = string.Empty;   // 興趣標籤 (JSON 字串)
 
         // 刊登資源與評價清單
         public List<HouseDto> ActiveHouses { get; set; }

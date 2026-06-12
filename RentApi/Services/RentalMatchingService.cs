@@ -313,6 +313,24 @@ namespace RentApi.Services
                                  where house.Status == 1
                                  select new { house, rule, loc, account, user };
 
+                if (request.CleanLevels != null && request.CleanLevels.Any())
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.CleanLevel.HasValue &&
+                        request.CleanLevels.Contains(x.rule.CleanLevel.Value)
+                    );
+                }
+
+                if (request.NoiseToleranceLevels != null && request.NoiseToleranceLevels.Any())
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.NoiseTolerance.HasValue &&
+                        request.NoiseToleranceLevels.Contains(x.rule.NoiseTolerance.Value)
+                    );
+                }
+
                 // 1. 價格防線
                 houseQuery = houseQuery.Where(x => x.house.RentPrice >= (int)request.PriceMin && x.house.RentPrice <= (int)request.PriceMax);
 
@@ -382,11 +400,17 @@ namespace RentApi.Services
                     HouseId = x.house.Id,
                     SleepTime = x.rule != null ? x.rule.SleepTime : null,
                     WakeTime = x.rule != null ? x.rule.WakeTime : null,
-                    CleanLevel = x.rule != null ? (int?)x.rule.CleanLevel : null,
-                    NoiseTolerance = x.rule != null ? (int?)x.rule.NoiseTolerance : null,
+                    CleanLevel = x.rule != null && x.rule.CleanLevel.HasValue
+                        ? x.rule.CleanLevel.Value
+                        : 3,
+
+                    NoiseTolerance = x.rule != null && x.rule.NoiseTolerance.HasValue
+                        ? x.rule.NoiseTolerance.Value
+                        : 3,
                     Pet = x.rule != null ? x.rule.Pet : null,
                     Smoke = x.rule != null ? x.rule.Smoke : null,
                     AdvancedRules = x.rule != null ? x.rule.AdvancedRules : null
+
                 }).ToListAsync();
 
                 combinedList.AddRange(houseResults);

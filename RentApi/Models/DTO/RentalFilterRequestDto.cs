@@ -72,5 +72,7 @@ namespace YourProjectNamespace.Dtos
 
         // 在 RentalFilterRequestDto.cs 中
         public List<string> AdvancedRules { get; set; } = new List<string>();
+        public List<int> CleanLevels { get; set; } = new();
+        public List<int> NoiseToleranceLevels { get; set; } = new();
     }
 }

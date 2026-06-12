@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
+using RentApi.Models;
 using RentApi.Models.DTO;
 using RentApi.Services;
 using static System.Net.Mime.MediaTypeNames;
