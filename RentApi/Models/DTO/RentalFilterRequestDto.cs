@@ -74,5 +74,7 @@ namespace YourProjectNamespace.Dtos
         public List<string> AdvancedRules { get; set; } = new List<string>();
         public List<int> CleanLevels { get; set; } = new();
         public List<int> NoiseToleranceLevels { get; set; } = new();
+
+        public bool? LivingWithLessor { get; set; }
     }
 }

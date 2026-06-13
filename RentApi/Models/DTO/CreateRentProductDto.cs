@@ -14,5 +14,7 @@
         public string? OwnTool { get; set; }
         public string? RequiredKnowledge { get; set; }
         public string? Address { get; set; }
+        public string? UsageRequirements { get; set; }
+        public string? UsageTerms { get; set; }
     }
 }

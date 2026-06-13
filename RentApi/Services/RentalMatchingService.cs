@@ -68,6 +68,7 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
                             AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
                             RealName = user != null ? user.RealName : "未知提供者",
@@ -142,6 +143,7 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
                             AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
                             ImageUrls = new List<string>(),
@@ -153,12 +155,15 @@ namespace RentApi.Services
             if (houseResult != null)
             {
                 var images = await _context.House_Images
-                                           .Where(img => img.HouseId == id)
-                                           .Select(img => img.Url)
-                                           .ToListAsync();
+                    .AsNoTracking()
+                    .Where(img => img.HouseId == id)
+                    .OrderByDescending(img => img.IsCover)
+                    .ThenBy(img => img.Id)
+                    .Select(img => img.Url)
+                    .ToListAsync();
 
                 houseResult.ImageUrls = images;
-                houseResult.CoverUrl = images.FirstOrDefault(); // 同時把第一張設為封面
+                houseResult.CoverUrl = images.FirstOrDefault();
             }
 
             return houseResult;
@@ -208,9 +213,11 @@ namespace RentApi.Services
 
                             // 🌟 補上這段撈取圖片的邏輯
                             CoverUrl = _context.Product_Image
-                                               .Where(img => img.ProductId == product.Id)
-                                               .Select(img => img.Url)
-                                               .FirstOrDefault()
+                                .Where(img => img.ProductId == product.Id)
+                                .OrderByDescending(img => img.IsCover)
+                                .ThenBy(img => img.Id)
+                                .Select(img => img.Url)
+                                .FirstOrDefault()
                         };
 
             return await query.ToListAsync();
@@ -219,50 +226,70 @@ namespace RentApi.Services
         // 4. 根據 ID 抓取單一工具技能詳情
         public async Task<Match_ProductDto?> GetProductByIdAsync(int id)
         {
-            var query = from product in _context.Rent_Products
+            var query =
+                from product in _context.Rent_Products.AsNoTracking()
 
-                        join account in _context.Account on product.AccountId equals account.Id into accounts
-                        from account in accounts.DefaultIfEmpty()
+                join account in _context.Account.AsNoTracking()
+                    on product.AccountId equals account.Id into accounts
+                from account in accounts.DefaultIfEmpty()
 
-                        join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
-                        from user in users.DefaultIfEmpty()
+                join user in _context.User.AsNoTracking()
+                    on (account != null ? account.Id : -1) equals user.AccountId into users
+                from user in users.DefaultIfEmpty()
 
-                        where product.Id == id
-                        select new Match_ProductDto
-                        {
-                            Id = product.Id,
-                            AccountId = product.AccountId,
-                            DistrictId = null,
-                            Name = product.Name,
-                            Category = product.Category,
-                            Description = product.Description,
-                            Price = product.Price,
-                            PriceUnit = product.PriceUnit,
-                            Deposit = product.Deposit,
-                            Status = product.Status,
-                            Quantity = product.Quantity,
-                            OwnTool = product.OwnTool,
-                            RequiredKnowledge = product.RequiredKnowledge,
-                            Address = product.Address,
-                            UsageRequirements = product.UsageRequirements,
-                            UsageTerms = product.UsageTerms,
+                where product.Id == id
+                select new Match_ProductDto
+                {
+                    Id = product.Id,
+                    AccountId = product.AccountId,
+                    DistrictId = null,
 
-                            CityName = "",
-                            DistrictName = "",
+                    Name = product.Name,
+                    Category = product.Category,
+                    Description = product.Description,
 
-                            UserName = account != null ? account.Username : "未知提供者",
-                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
-                            Rating = user != null ? user.Rating : 0,
-                            ReviewCount = user != null ? user.ReviewCount : 0,
-                            RealName = user != null ? user.RealName : "未知提供者",
+                    Price = product.Price,
+                    PriceUnit = product.PriceUnit,
+                    Deposit = product.Deposit,
 
-                            CoverUrl = _context.Product_Image
-                                               .Where(img => img.ProductId == product.Id)
-                                               .Select(img => img.Url)
-                                               .FirstOrDefault(),
-                        };
+                    Status = product.Status,
+                    Quantity = product.Quantity,
 
-            return await query.FirstOrDefaultAsync();
+                    OwnTool = product.OwnTool,
+                    RequiredKnowledge = product.RequiredKnowledge,
+                    Address = product.Address,
+                    UsageRequirements = product.UsageRequirements,
+                    UsageTerms = product.UsageTerms,
+
+                    CityName = "",
+                    DistrictName = "",
+
+                    UserName = account != null ? account.Username : "未知提供者",
+                    Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = user != null ? user.Rating : 0,
+                    ReviewCount = user != null ? user.ReviewCount : 0,
+                    RealName = user != null ? user.RealName : "未知提供者",
+
+                    ImageUrls = new List<string>()
+                };
+
+            var productResult = await query.FirstOrDefaultAsync();
+
+            if (productResult != null)
+            {
+                var images = await _context.Product_Image
+                    .AsNoTracking()
+                    .Where(img => img.ProductId == id)
+                    .OrderByDescending(img => img.IsCover)
+                    .ThenBy(img => img.Id)
+                    .Select(img => img.Url)
+                    .ToListAsync();
+
+                productResult.ImageUrls = images;
+                productResult.CoverUrl = images.FirstOrDefault();
+            }
+
+            return productResult;
         }
 
         // 5. 🌟 核心修正：全新重構的綜合篩選器功能
@@ -312,6 +339,7 @@ namespace RentApi.Services
                                  from user in users.DefaultIfEmpty()
                                  where house.Status == 1
                                  select new { house, rule, loc, account, user };
+                
 
                 if (request.CleanLevels != null && request.CleanLevels.Any())
                 {
@@ -328,6 +356,15 @@ namespace RentApi.Services
                         x.rule != null &&
                         x.rule.NoiseTolerance.HasValue &&
                         request.NoiseToleranceLevels.Contains(x.rule.NoiseTolerance.Value)
+                    );
+                }
+
+                // 是否與出租人同住篩選
+                if (request.LivingWithLessor.HasValue)
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.LivingWithLessor == request.LivingWithLessor.Value
                     );
                 }
 
@@ -409,6 +446,7 @@ namespace RentApi.Services
                         : 3,
                     Pet = x.rule != null ? x.rule.Pet : null,
                     Smoke = x.rule != null ? x.rule.Smoke : null,
+                    LivingWithLessor = x.rule != null ? x.rule.LivingWithLessor : false,
                     AdvancedRules = x.rule != null ? x.rule.AdvancedRules : null
 
                 }).ToListAsync();

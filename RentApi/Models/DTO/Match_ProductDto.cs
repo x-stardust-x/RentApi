@@ -78,5 +78,6 @@
         // 使用條款 & 須知
         public string? UsageRequirements { get; set; }
         public string? UsageTerms { get; set; }
+        public IEnumerable<string>? ImageUrls { get; set; } // Swiper 多圖陣列
     }
 }

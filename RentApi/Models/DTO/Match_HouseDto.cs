@@ -46,6 +46,7 @@
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? AdvancedRules { get; set; }
+        public bool LivingWithLessor { get; set; } = false;
 
         // 使用者評價
         public decimal? Rating { get; set; }

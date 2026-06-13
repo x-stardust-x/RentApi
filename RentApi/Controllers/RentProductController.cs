@@ -110,6 +110,8 @@ namespace CoLiving.Controllers
                 Quantity = request.Quantity,
                 OwnTool = request.OwnTool,
                 RequiredKnowledge = request.RequiredKnowledge,
+                UsageRequirements = request.UsageRequirements,
+                UsageTerms = request.UsageTerms,
                 Address = request.Address,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
@@ -139,6 +141,8 @@ namespace CoLiving.Controllers
             product.Status = request.Status;
             product.Quantity = request.Quantity;
             product.OwnTool = request.OwnTool;
+            product.UsageRequirements = request.UsageRequirements;
+            product.UsageTerms = request.UsageTerms;
             product.RequiredKnowledge = request.RequiredKnowledge;
             product.Address = request.Address;
             product.UpdatedAt = DateTime.Now;
@@ -307,6 +311,8 @@ namespace CoLiving.Controllers
                     p.Quantity,
                     p.OwnTool,
                     p.RequiredKnowledge,
+                    p.UsageRequirements,
+                    p.UsageTerms,
                     p.Address
                 },
                 Images = oldPhotos
