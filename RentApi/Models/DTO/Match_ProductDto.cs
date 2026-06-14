@@ -67,6 +67,8 @@
 
         // 提供者資料
         public string? UserName { get; set; }
+        public string? ProviderPhone { get; set; }
+        public string? ProviderLineId { get; set; }
         public string? Bio { get; set; }
         public decimal? Rating { get; set; }
         public int? ReviewCount { get; set; }

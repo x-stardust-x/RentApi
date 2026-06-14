@@ -45,6 +45,8 @@ namespace RentApi.Services
                             DistrictId = house.DistrictId,
                             Name = house.Name,
                             Address = house.Address,
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Description = house.Description,
                             RentPrice = house.RentPrice,
                             IncludeUtilities = house.IncludeUtilities,
@@ -133,6 +135,8 @@ namespace RentApi.Services
 
                             UserName = account != null ? account.Username : "未知房東",
                             Bio = user != null ? user.Bio : "這位出租人還沒寫自我介紹",
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Rating = user != null ? user.Rating : 0,
                             ReviewCount = user != null ? user.ReviewCount : 0,
 
@@ -187,6 +191,8 @@ namespace RentApi.Services
                             AccountId = product.AccountId,
                             DistrictId = null,
                             Name = product.Name,
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Category = product.Category,
                             Description = product.Description,
                             Price = product.Price,
@@ -245,6 +251,8 @@ namespace RentApi.Services
                     DistrictId = null,
 
                     Name = product.Name,
+                    ProviderPhone = user != null ? user.Phone : "",
+                    ProviderLineId = user != null ? user.LineId : "",
                     Category = product.Category,
                     Description = product.Description,
 
