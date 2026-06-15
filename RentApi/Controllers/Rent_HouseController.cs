@@ -432,6 +432,9 @@ namespace RentApi.Controllers
 
                 // 修改後重新送審
                 house.Status = 0;
+                house.IsVisible = false;
+                house.RentalStatus = "pending_review";
+                //house.Status = request.Status;
 
                 var houseRule = await _context.HouseRules
                     .FirstOrDefaultAsync(r => r.HouseId == id);
@@ -482,6 +485,8 @@ namespace RentApi.Controllers
             if (house == null) return NotFound("找不到這間房子喔！");
 
             house.Status = 1;
+            house.IsVisible = true;
+            house.RentalStatus = "available";
             _context.SaveChanges();
 
             return Ok(new { Message = "房屋核准成功！" });
@@ -495,6 +500,8 @@ namespace RentApi.Controllers
             if (house == null) return NotFound("找不到這間房子喔！");
 
             house.Status = 3;
+            house.IsVisible = false;
+            house.RentalStatus = "offline";
             _context.SaveChanges();
 
             return Ok(new { Message = "房屋已強制下架！" });

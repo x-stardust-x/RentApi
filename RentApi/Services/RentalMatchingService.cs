@@ -38,6 +38,8 @@ namespace RentApi.Services
                         from loc in locations.DefaultIfEmpty()
 
                         where house.Status == 1
+                            && house.IsVisible == true
+                            && house.RentalStatus == "available"
                         select new Match_HouseDto
                         {
                             Id = house.Id,
@@ -110,6 +112,9 @@ namespace RentApi.Services
                         from loc in locations.DefaultIfEmpty()
 
                         where house.Id == id
+                            && house.Status == 1
+                            && house.IsVisible == true
+                            && house.RentalStatus == "available"
                         select new Match_HouseDto
                         {
                             Id = house.Id,
@@ -244,6 +249,7 @@ namespace RentApi.Services
                 from user in users.DefaultIfEmpty()
 
                 where product.Id == id
+                    && product.Status == 1
                 select new Match_ProductDto
                 {
                     Id = product.Id,
@@ -346,6 +352,8 @@ namespace RentApi.Services
                                  join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                                  from user in users.DefaultIfEmpty()
                                  where house.Status == 1
+                                    && house.IsVisible == true
+                                    && house.RentalStatus == "available"
                                  select new { house, rule, loc, account, user };
                 
 

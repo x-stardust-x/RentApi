@@ -138,7 +138,8 @@ namespace CoLiving.Controllers
             product.Price = request.Price;
             product.PriceUnit = request.PriceUnit;
             product.Deposit = request.Deposit;
-            product.Status = request.Status;
+            product.Status = 0;
+            //product.Status = request.Status;
             product.Quantity = request.Quantity;
             product.OwnTool = request.OwnTool;
             product.UsageRequirements = request.UsageRequirements;
@@ -231,19 +232,25 @@ namespace CoLiving.Controllers
         // 🛠️ 資產 / 技能 審核與下架專區
         // ==========================================
         [HttpPut("Approve/{id}")]
-
         public async Task<IActionResult> ApproveProductStatus(int id)
         {
             var product = await _context.Rent_Products.FindAsync(id);
-            if (product == null) return NotFound("找不到這個資產/技能喔！");
+
+            if (product == null)
+            {
+                return NotFound("找不到這個資產/技能喔！");
+            }
 
             product.Status = 1;
+            product.UpdatedAt = DateTime.Now;
+
             await _context.SaveChangesAsync();
+
             return Ok(new { Message = "資產/技能核准成功！" });
         }
 
 
-        [HttpDelete("TakeDown/{id}")]
+        [HttpPut("TakeDown/{id}")]
         public async Task<IActionResult> TakeDownProductStatus(int id)
         {
             try
@@ -253,17 +260,22 @@ namespace CoLiving.Controllers
                     return NotFound(new { Message = "找不到這個資產/技能喔！" });
 
 
-                var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
-                if (relatedImages.Any())
-                {
-                    _context.Product_Image.RemoveRange(relatedImages);
-                }
+                //var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
+                //if (relatedImages.Any())
+                //{
+                //    _context.Product_Image.RemoveRange(relatedImages);
+                //}
 
 
-                _context.Rent_Products.Remove(product);
+                //_context.Rent_Products.Remove(product);
+
+                // 強制下架，不刪資料、不刪圖片
+                product.Status = 3;
+                product.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
-                return Ok(new { Message = "資產/技能已徹底刪除！" });
+
+                return Ok(new { Message = "資產/技能已下架！" });
             }
             catch (Exception ex)
             {
