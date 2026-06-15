@@ -16,7 +16,7 @@ namespace RentApi.Models
 
         public int HouseId { get; set; }
 
-        public int LesseeId { get; set; }  // 配合妳 DB 的拼法：LesseId (少一個 e)
+        public int LesseeId { get; set; }
         
         public int LessorId { get; set; }
 

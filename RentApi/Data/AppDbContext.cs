@@ -39,5 +39,8 @@ namespace RentApi.Data
 
         public DbSet<HouseViewing> HouseViewings { get; set; }
         public DbSet<HouseViewingAvailableSlot> HouseViewingAvailableSlots { get; set; }
+        public DbSet<ToolBookingOrder> ToolBookingOrders { get; set; }
+        public DbSet<SkillBookingOrder> SkillBookingOrders { get; set; }
+
     }
 }
