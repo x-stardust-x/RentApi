@@ -39,5 +39,7 @@ namespace RentApi.Data
 
         public DbSet<HouseViewing> HouseViewings { get; set; }
         public DbSet<HouseViewingAvailableSlot> HouseViewingAvailableSlots { get; set; }
+
+        public DbSet<FavoriteHouse> FavoriteHouses { get; set; }
     }
 }
