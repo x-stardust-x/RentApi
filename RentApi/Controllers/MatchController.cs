@@ -39,15 +39,14 @@ namespace RentApi.Controllers
         {
             
             var activeHouses = await _context.Rent_Houses
-                .Where(h => h.RentalStatus == "待租" && h.IsVisible == true)
+                .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
                 .ToListAsync();
 
-            if (!activeHouses.Any())
-            {
+            if (!activeHouses.Any()) {
                 return Ok(new List<HouseMatchResultDto>());
             }
 
-           
+
             var matchTasks = activeHouses.Select(async house =>
             {
                
