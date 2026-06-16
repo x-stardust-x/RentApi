@@ -5,7 +5,7 @@ using RentApi.Data;
 using RentApi.Interfaces;
 using RentApi.Services;
 using System.Text;
-
+using RentApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -41,6 +41,10 @@ builder.Services.AddAuthentication("Bearer")
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
+
+builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
+
+builder.Services.AddScoped<MatchService>();
 
 builder.Services.AddAuthorization();
 

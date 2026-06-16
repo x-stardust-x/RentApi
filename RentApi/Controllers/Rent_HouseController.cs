@@ -61,6 +61,7 @@ namespace RentApi.Controllers
                 NoiseTolerance = request.NoiseTolerance,
                 Pet = request.Pet,
                 Smoke = request.Smoke,
+                LivingWithLessor = request.LivingWithLessor,
                 AdvancedRules = request.AdvancedRules ?? string.Empty
             };
 
@@ -72,53 +73,146 @@ namespace RentApi.Controllers
 
         // 2. 取得房屋列表 
         [HttpGet]
-        public IActionResult GetAllHouses()
+        public async Task<IActionResult> GetAllHouses()
         {
-            var result = (from h in _context.Rent_Houses
-                              // 🎯 連動 1：利用 house 的 DistrictId 去關聯地點表
-                          join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locations
-                          from loc in locations.DefaultIfEmpty()
+            try
+            {
+                // 開發期先拉長 timeout，避免 SQL Server 偶發慢查直接中斷
+                _context.Database.SetCommandTimeout(60);
 
-                              // 🌟 核心修正：連動 2：利用 house 的 AccountId 去關聯會員帳號表 (假設資料表叫 Accounts)
-                              // (💡 如果你的帳號表在 DbContext 裡叫 Users 或 Members，請自行把下面的 Accounts 改掉喔！)
-                          join acc in _context.Account on h.AccountId equals acc.Id into accounts
-                          from acc in accounts.DefaultIfEmpty()
+                var houses = await (
+                    from h in _context.Rent_Houses.AsNoTracking()
 
-                          select new
-                          {
-                              h.Id,
-                              h.Name,
-                              h.Address,
-                              h.RentPrice,
-                              h.HouseType,
-                              h.AreaSize,
-                              h.Status,
-                              Description = h.Description,
-                              CityName = loc != null ? loc.CityName : "",
-                              DistrictName = loc != null ? loc.DistrictName : "",
+                    join loc in _context.Location_Districts.AsNoTracking()
+                        on h.DistrictId equals loc.DistrictId into locations
+                    from loc in locations.DefaultIfEmpty()
 
+                    join acc in _context.Account.AsNoTracking()
+                        on h.AccountId equals acc.Id into accounts
+                    from acc in accounts.DefaultIfEmpty()
 
-                              UserName = acc != null ? acc.Username : "神祕房東", 
-                              UserAvatar = "",
+                    join rule in _context.HouseRules.AsNoTracking()
+                        on h.Id equals rule.HouseId into rules
+                    from rule in rules.DefaultIfEmpty()
 
-                              // 抓取生活公約
-                              SleepTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.SleepTime).FirstOrDefault(),
-                              WakeTime = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.WakeTime).FirstOrDefault(),
-                              CleanLevel = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.CleanLevel).FirstOrDefault(),
-                              NoiseTolerance = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.NoiseTolerance).FirstOrDefault(),
-                              Pet = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Pet).FirstOrDefault(),
-                              Smoke = _context.HouseRules.Where(r => r.HouseId == h.Id).Select(r => r.Smoke).FirstOrDefault(),
-                              AdvancedRules = "",
-                              FloorInfo = h.FloorInfo,
-                              IncludeUtilities = h.IncludeUtilities,
-                              IncludeWifi = h.IncludeWifi,
-                              IncludeManagememtFee = h.IncludeManagementFee, 
+                    select new
+                    {
+                        h.Id,
+                        h.AccountId,
+                        h.DistrictId,
+                        h.Name,
+                        h.Address,
+                        h.RentPrice,
+                        h.HouseType,
+                        h.AreaSize,
+                        h.Status,
+                        h.Description,
+                        h.FloorInfo,
+                        h.IncludeUtilities,
+                        h.IncludeWifi,
+                        h.IncludeManagementFee,
 
-                              CoverUrl = _context.House_Images.Where(img => img.HouseId == h.Id && img.IsCover).Select(img => img.Url).FirstOrDefault(),
-                              Images = _context.House_Images.Where(img => img.HouseId == h.Id).Select(img => new { img.Id, img.Url, img.IsCover }).ToList()
-                          }).ToList();
+                        CityName = loc != null ? loc.CityName : "",
+                        DistrictName = loc != null ? loc.DistrictName : "",
 
-            return Ok(result);
+                        UserName = acc != null ? acc.Username : "神祕房東",
+                        UserAvatar = "",
+
+                        SleepTime = rule != null ? rule.SleepTime : null,
+                        WakeTime = rule != null ? rule.WakeTime : null,
+                        CleanLevel = rule != null ? rule.CleanLevel : 3,
+                        NoiseTolerance = rule != null ? rule.NoiseTolerance : 3,
+                        Pet = rule != null ? rule.Pet : false,
+                        Smoke = rule != null ? rule.Smoke : false,
+                        LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
+                        AdvancedRules = rule != null ? rule.AdvancedRules : ""
+                    }
+                )
+                .OrderByDescending(h => h.Id)
+                .ToListAsync();
+
+                var houseIds = houses.Select(h => h.Id).ToList();
+
+                var images = await _context.House_Images
+                    .AsNoTracking()
+                    .Where(img => houseIds.Contains(img.HouseId))
+                    .Select(img => new
+                    {
+                        img.Id,
+                        img.HouseId,
+                        img.Url,
+                        img.IsCover
+                    })
+                    .ToListAsync();
+
+                var result = houses.Select(h => new
+                {
+                    h.Id,
+                    h.AccountId,
+                    h.DistrictId,
+                    h.Name,
+                    h.Address,
+                    h.RentPrice,
+                    h.HouseType,
+                    h.AreaSize,
+                    h.Status,
+                    Description = h.Description,
+
+                    h.CityName,
+                    h.DistrictName,
+
+                    h.UserName,
+                    h.UserAvatar,
+
+                    SleepTime = h.SleepTime != null ? h.SleepTime.Value.ToString("HH:mm") : null,
+                    WakeTime = h.WakeTime != null ? h.WakeTime.Value.ToString("HH:mm") : null,
+
+                    h.CleanLevel,
+                    h.NoiseTolerance,
+                    h.Pet,
+                    h.Smoke,
+                    h.LivingWithLessor,
+                    h.AdvancedRules,
+
+                    h.FloorInfo,
+                    h.IncludeUtilities,
+                    h.IncludeWifi,
+                    h.IncludeManagementFee,
+
+                    // 保留你原本 typo 欄位，避免舊前端壞掉
+                    IncludeManagememtFee = h.IncludeManagementFee,
+
+                    CoverUrl = images
+                        .Where(img => img.HouseId == h.Id && img.IsCover)
+                        .Select(img => img.Url)
+                        .FirstOrDefault()
+                        ?? images
+                            .Where(img => img.HouseId == h.Id)
+                            .Select(img => img.Url)
+                            .FirstOrDefault(),
+
+                    Images = images
+                        .Where(img => img.HouseId == h.Id)
+                        .Select(img => new
+                        {
+                            img.Id,
+                            img.Url,
+                            img.IsCover
+                        })
+                        .ToList()
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Message = "取得房屋列表失敗",
+                    Details = ex.Message,
+                    Inner = ex.InnerException?.Message
+                });
+            }
         }
 
         // 🌟 取得「我的房源」列表 (專屬房東)
@@ -127,74 +221,260 @@ namespace RentApi.Controllers
         {
             try
             {
-                // int currentUserId = 1; 
+                var myHouses = (
+                    from h in _context.Rent_Houses.AsNoTracking()
 
-                var myHouses = (from h in _context.Rent_Houses
-                                where h.AccountId == accountId // 🌟 4. 這裡直接用上面傳進來的 accountId
-                                join loc in _context.Location_Districts on h.DistrictId equals loc.DistrictId into locGroup
-                                from loc in locGroup.DefaultIfEmpty()
-                                select new
-                                {
-                                    h.Id,
-                                    h.Name,
-                                    h.Address,
-                                    h.RentPrice,
-                                    h.Status,
-                                    DistrictName = loc != null ? loc.DistrictName : "未知區域",
-                                    CoverUrl = _context.House_Images
-                                                .Where(img => img.HouseId == h.Id && img.IsCover)
-                                                .Select(img => img.Url)
-                                                .FirstOrDefault()
-                                }).ToList();
+                    join loc in _context.Location_Districts.AsNoTracking()
+                        on h.DistrictId equals loc.DistrictId into locGroup
+                    from loc in locGroup.DefaultIfEmpty()
 
-                return Ok(myHouses);
+                    join rule in _context.HouseRules.AsNoTracking()
+                        on h.Id equals rule.HouseId into ruleGroup
+                    from rule in ruleGroup.DefaultIfEmpty()
+
+                    where h.AccountId == accountId
+
+                    select new
+                    {
+                        h.Id,
+                        h.AccountId,
+                        h.DistrictId,
+                        h.Name,
+                        h.Address,
+                        h.Description,
+                        h.RentPrice,
+                        h.Status,
+                        h.AreaSize,
+                        h.LeaseTerm,
+                        h.FloorInfo,
+                        h.HouseType,
+                        h.IncludeUtilities,
+                        h.IncludeWifi,
+                        h.IncludeManagementFee,
+
+                        CityName = loc != null ? loc.CityName : "",
+                        DistrictName = loc != null ? loc.DistrictName : "未知區域",
+                        ZipCode = loc != null ? loc.ZipCode.ToString() : "",
+
+                        SleepTime = rule != null ? rule.SleepTime : null,
+                        WakeTime = rule != null ? rule.WakeTime : null,
+                        CleanLevel = rule != null ? rule.CleanLevel : 3,
+                        NoiseTolerance = rule != null ? rule.NoiseTolerance : 3,
+                        Pet = rule != null ? rule.Pet : false,
+                        Smoke = rule != null ? rule.Smoke : false,
+                        LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
+                        AdvancedRules = rule != null ? rule.AdvancedRules : ""
+                    }
+                ).ToList();
+
+                var houseIds = myHouses.Select(h => h.Id).ToList();
+
+                var images = _context.House_Images
+                    .AsNoTracking()
+                    .Where(img => houseIds.Contains(img.HouseId))
+                    .Select(img => new
+                    {
+                        img.Id,
+                        img.HouseId,
+                        img.Url,
+                        img.IsCover
+                    })
+                    .ToList();
+
+                var result = myHouses.Select(h => new
+                {
+                    h.Id,
+                    h.AccountId,
+                    h.DistrictId,
+                    h.Name,
+                    h.Address,
+                    h.Description,
+                    h.RentPrice,
+                    h.Status,
+                    h.AreaSize,
+                    h.LeaseTerm,
+                    h.FloorInfo,
+                    h.HouseType,
+                    h.IncludeUtilities,
+                    h.IncludeWifi,
+                    h.IncludeManagementFee,
+
+                    h.CityName,
+                    h.DistrictName,
+                    h.ZipCode,
+
+                    SleepTime = h.SleepTime != null ? h.SleepTime.Value.ToString("HH:mm") : null,
+                    WakeTime = h.WakeTime != null ? h.WakeTime.Value.ToString("HH:mm") : null,
+                    h.CleanLevel,
+                    h.NoiseTolerance,
+                    h.Pet,
+                    h.Smoke,
+                    h.AdvancedRules,
+
+                    CoverUrl = images
+                        .Where(img => img.HouseId == h.Id && img.IsCover)
+                        .Select(img => img.Url)
+                        .FirstOrDefault()
+                        ?? images
+                            .Where(img => img.HouseId == h.Id)
+                            .Select(img => img.Url)
+                            .FirstOrDefault(),
+
+                    Images = images
+                        .Where(img => img.HouseId == h.Id)
+                        .Select(img => new
+                        {
+                            img.Id,
+                            img.Url,
+                            img.IsCover
+                        })
+                        .ToList()
+                }).ToList();
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = "系統發生錯誤", Details = ex.Message });
+                return StatusCode(500, new
+                {
+                    Message = "系統發生錯誤",
+                    Details = ex.Message
+                });
             }
         }
 
         // 3. 取得單一房屋詳細資料
-        [HttpGet("{id:int}")] 
+        [HttpGet("{id:int}")]
         public IActionResult GetHouseById(int id)
         {
             var house = _context.Rent_Houses
-                        .Include(h => h.HouseImages) 
-                        .FirstOrDefault(h => h.Id == id);
+                .Include(h => h.HouseImages)
+                .FirstOrDefault(h => h.Id == id);
 
-            if (house == null) return NotFound("找不到這間房子喔！");
-            return Ok(house);
+            if (house == null)
+            {
+                return NotFound("找不到這間房子喔！");
+            }
+
+            var rule = _context.HouseRules
+                .FirstOrDefault(r => r.HouseId == id);
+
+            return Ok(new
+            {
+                house.Id,
+                house.AccountId,
+                house.DistrictId,
+                house.Name,
+                house.Address,
+                house.Description,
+                house.RentPrice,
+                house.IncludeUtilities,
+                house.IncludeWifi,
+                house.IncludeManagementFee,
+                house.AreaSize,
+                house.LeaseTerm,
+                house.FloorInfo,
+                house.HouseType,
+                house.Status,
+
+                SleepTime = rule != null && rule.SleepTime.HasValue
+                    ? rule.SleepTime.Value.ToString("HH:mm")
+                    : "23:30",
+
+                WakeTime = rule != null && rule.WakeTime.HasValue
+                    ? rule.WakeTime.Value.ToString("HH:mm")
+                    : "07:00",
+                CleanLevel = rule != null ? rule.CleanLevel : 3,
+                NoiseTolerance = rule != null ? rule.NoiseTolerance : 3,
+                Pet = rule?.Pet ?? false,
+                Smoke = rule?.Smoke ?? false,
+                LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
+                AdvancedRules = rule != null ? rule.AdvancedRules : "",
+
+                Images = house.HouseImages.Select(img => new
+                {
+                    img.Id,
+                    img.Url,
+                    img.IsCover
+                }).ToList()
+            });
         }
-          
+
         //  4. 修改房屋資料 
-        [HttpPut("{id:int}")] 
-        public IActionResult UpdateHouse(int id, [FromBody] CreateHouseDto request)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateHouse(int id, [FromBody] CreateHouseDto request)
         {
-            var house = _context.Rent_Houses.Find(id);
-            if (house == null) return NotFound("找不到要修改的房子！");
+            try
+            {
+                var house = await _context.Rent_Houses
+                    .FirstOrDefaultAsync(h => h.Id == id);
 
-            // 基本資料
-            house.DistrictId = request.DistrictId;
-            house.Name = request.Name;
-            house.Address = request.Address;
-            house.Description = request.Description;
-            house.RentPrice = request.RentPrice;
+                if (house == null)
+                {
+                    return NotFound("找不到要修改的房子！");
+                }
 
-            //  詳細設備與規格
-            house.IncludeUtilities = request.IncludeUtilities;
-            house.IncludeWifi = request.IncludeWifi;
-            house.IncludeManagementFee = request.IncludeManagementFee;
-            house.AreaSize = request.AreaSize;
-            house.LeaseTerm = request.LeaseTerm;
-            house.FloorInfo = request.FloorInfo;
-            house.HouseType = request.HouseType;
-            house.Status = request.Status;
+                // 基本資料
+                house.DistrictId = request.DistrictId;
+                house.Name = request.Name;
+                house.Address = request.Address;
+                house.Description = request.Description;
+                house.RentPrice = request.RentPrice;
 
-            house.Status = 0;
+                // 詳細設備與規格
+                house.IncludeUtilities = request.IncludeUtilities;
+                house.IncludeWifi = request.IncludeWifi;
+                house.IncludeManagementFee = request.IncludeManagementFee;
+                house.AreaSize = request.AreaSize;
+                house.LeaseTerm = request.LeaseTerm;
+                house.FloorInfo = request.FloorInfo;
+                house.HouseType = request.HouseType;
 
-            _context.SaveChanges();
-            return Ok(new { Message = "房屋資料更新成功！", HouseData = house });
+                // 修改後重新送審
+                house.Status = 0;
+                house.IsVisible = false;
+                house.RentalStatus = "pending_review";
+                //house.Status = request.Status;
+
+                var houseRule = await _context.HouseRules
+                    .FirstOrDefaultAsync(r => r.HouseId == id);
+
+                if (houseRule == null)
+                {
+                    houseRule = new HouseRules
+                    {
+                        HouseId = id
+                    };
+
+                    _context.HouseRules.Add(houseRule);
+                }
+
+                houseRule.SleepTime = request.SleepTime;
+                houseRule.WakeTime = request.WakeTime;
+                houseRule.CleanLevel = request.CleanLevel;
+                houseRule.NoiseTolerance = request.NoiseTolerance;
+                houseRule.Pet = request.Pet;
+                houseRule.Smoke = request.Smoke;
+                houseRule.LivingWithLessor = request.LivingWithLessor;
+                houseRule.AdvancedRules = request.AdvancedRules ?? string.Empty;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    Message = "房屋資料更新成功！",
+                    HouseData = house
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Message = "房屋資料更新失敗",
+                    Details = ex.Message,
+                    Inner = ex.InnerException?.Message
+                });
+            }
         }
 
         // 核准上架
@@ -205,6 +485,8 @@ namespace RentApi.Controllers
             if (house == null) return NotFound("找不到這間房子喔！");
 
             house.Status = 1;
+            house.IsVisible = true;
+            house.RentalStatus = "available";
             _context.SaveChanges();
 
             return Ok(new { Message = "房屋核准成功！" });
@@ -218,6 +500,8 @@ namespace RentApi.Controllers
             if (house == null) return NotFound("找不到這間房子喔！");
 
             house.Status = 3;
+            house.IsVisible = false;
+            house.RentalStatus = "offline";
             _context.SaveChanges();
 
             return Ok(new { Message = "房屋已強制下架！" });
@@ -348,6 +632,7 @@ public class CreateHouseDto
         public int NoiseTolerance { get; set; }
         public bool Pet { get; set; }
         public bool Smoke { get; set; }
+        public bool LivingWithLessor { get; set; } = false;
         public string? Interests { get; set; }
 
         public string AdvancedRules { get; set; } = string.Empty;

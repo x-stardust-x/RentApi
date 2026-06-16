@@ -110,6 +110,8 @@ namespace CoLiving.Controllers
                 Quantity = request.Quantity,
                 OwnTool = request.OwnTool,
                 RequiredKnowledge = request.RequiredKnowledge,
+                UsageRequirements = request.UsageRequirements,
+                UsageTerms = request.UsageTerms,
                 Address = request.Address,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
@@ -136,9 +138,12 @@ namespace CoLiving.Controllers
             product.Price = request.Price;
             product.PriceUnit = request.PriceUnit;
             product.Deposit = request.Deposit;
-            product.Status = request.Status;
+            product.Status = 0;
+            //product.Status = request.Status;
             product.Quantity = request.Quantity;
             product.OwnTool = request.OwnTool;
+            product.UsageRequirements = request.UsageRequirements;
+            product.UsageTerms = request.UsageTerms;
             product.RequiredKnowledge = request.RequiredKnowledge;
             product.Address = request.Address;
             product.UpdatedAt = DateTime.Now;
@@ -227,19 +232,25 @@ namespace CoLiving.Controllers
         // 🛠️ 資產 / 技能 審核與下架專區
         // ==========================================
         [HttpPut("Approve/{id}")]
-
         public async Task<IActionResult> ApproveProductStatus(int id)
         {
             var product = await _context.Rent_Products.FindAsync(id);
-            if (product == null) return NotFound("找不到這個資產/技能喔！");
+
+            if (product == null)
+            {
+                return NotFound("找不到這個資產/技能喔！");
+            }
 
             product.Status = 1;
+            product.UpdatedAt = DateTime.Now;
+
             await _context.SaveChangesAsync();
+
             return Ok(new { Message = "資產/技能核准成功！" });
         }
 
 
-        [HttpDelete("TakeDown/{id}")]
+        [HttpPut("TakeDown/{id}")]
         public async Task<IActionResult> TakeDownProductStatus(int id)
         {
             try
@@ -249,17 +260,22 @@ namespace CoLiving.Controllers
                     return NotFound(new { Message = "找不到這個資產/技能喔！" });
 
 
-                var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
-                if (relatedImages.Any())
-                {
-                    _context.Product_Image.RemoveRange(relatedImages);
-                }
+                //var relatedImages = _context.Product_Image.Where(img => img.ProductId == id).ToList();
+                //if (relatedImages.Any())
+                //{
+                //    _context.Product_Image.RemoveRange(relatedImages);
+                //}
 
 
-                _context.Rent_Products.Remove(product);
+                //_context.Rent_Products.Remove(product);
+
+                // 強制下架，不刪資料、不刪圖片
+                product.Status = 3;
+                product.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
-                return Ok(new { Message = "資產/技能已徹底刪除！" });
+
+                return Ok(new { Message = "資產/技能已下架！" });
             }
             catch (Exception ex)
             {
@@ -307,35 +323,95 @@ namespace CoLiving.Controllers
                     p.Quantity,
                     p.OwnTool,
                     p.RequiredKnowledge,
+                    p.UsageRequirements,
+                    p.UsageTerms,
                     p.Address
                 },
                 Images = oldPhotos
             });
-        }  
+        }
 
         [HttpGet("User/{accountId:int}")]
-        public IActionResult GetProductsByAccountId(int accountId)
+        public async Task<IActionResult> GetProductsByAccountId(int accountId)
         {
-            var products = (from p in _context.Rent_Products
-                            where p.AccountId == accountId
-                            select new
-                            {
-                                p.Id,
-                                p.Name,
-                                p.Category,
-                                p.Price,
-                                p.PriceUnit,
-                                p.Description,
-                                p.Address,
-                                p.Status,
-                                // 🌟 直接幫你把首圖網址找出來，方便前端卡片顯示！
-                                CoverUrl = _context.Product_Image
-                                            .Where(img => img.ProductId == p.Id && img.IsCover)
-                                            .Select(img => img.Url)
-                                            .FirstOrDefault()
-                            }).ToList();
+            try
+            {
+                var products = await _context.Rent_Products
+                    .AsNoTracking()
+                    .Where(p => p.AccountId == accountId)
+                    .Select(p => new
+                    {
+                        p.Id,
+                        p.Name,
+                        p.Category,
+                        p.Price,
+                        p.PriceUnit,
+                        p.Description,
+                        p.Address,
+                        p.Status,
+                        p.Deposit,
+                        p.Quantity,
+                        p.OwnTool,
+                        p.RequiredKnowledge,
+                        p.UsageRequirements,
+                        p.UsageTerms
+                    })
+                    .ToListAsync();
 
-            return Ok(products);
+                var productIds = products
+                    .Select(p => p.Id)
+                    .ToList();
+
+                var coverImages = await _context.Product_Image
+                    .AsNoTracking()
+                    .Where(img => productIds.Contains(img.ProductId) && img.IsCover)
+                    .Select(img => new
+                    {
+                        img.ProductId,
+                        img.Url
+                    })
+                    .ToListAsync();
+
+                var coverMap = coverImages
+                    .GroupBy(img => img.ProductId)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.First().Url
+                    );
+
+                var result = products.Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    p.Category,
+                    p.Price,
+                    p.PriceUnit,
+                    p.Description,
+                    p.Address,
+                    p.Status,
+                    p.Deposit,
+                    p.Quantity,
+                    p.OwnTool,
+                    p.RequiredKnowledge,
+                    p.UsageRequirements,
+                    p.UsageTerms,
+
+                    CoverUrl = coverMap.ContainsKey(p.Id)
+                        ? coverMap[p.Id]
+                        : null
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Message = "取得工具 / 技能列表失敗",
+                    Details = ex.Message,
+                    Inner = ex.InnerException?.Message
+                });
+            }
         }
     }
 }

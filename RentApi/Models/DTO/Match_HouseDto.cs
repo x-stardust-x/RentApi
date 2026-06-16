@@ -9,6 +9,8 @@
         public int? Id { get; set; } // ID
         public int? AccountId { get; set; } // 所屬房東ID
         public string? UserName { get; set; } // 使用者名字
+        public string? ProviderPhone { get; set; }
+        public string? ProviderLineId { get; set; }
         public string? Bio { get; set; } // 使用者自我介紹
         public string? Name { get; set; } // 房屋名稱 (標題)
         public int? DistrictId { get; set; } // 關聯區域 (用於地區篩選)
@@ -46,6 +48,7 @@
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? AdvancedRules { get; set; }
+        public bool LivingWithLessor { get; set; } = false;
 
         // 使用者評價
         public decimal? Rating { get; set; }
