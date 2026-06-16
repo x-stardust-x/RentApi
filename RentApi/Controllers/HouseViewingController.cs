@@ -1581,5 +1581,14 @@ namespace RentApi.Controllers
                 });
             }
         }
+        //[Authorize]
+        [HttpGet("getallapplications")]
+        public async Task<IActionResult> GetAllApplications() {
+            var res = await _context.HouseViewings.ToListAsync();
+            if(res == null) {
+                return NotFound();
+            }
+            return Ok(res);
+        }
     }
 }

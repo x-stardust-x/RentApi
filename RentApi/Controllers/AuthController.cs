@@ -115,7 +115,8 @@ namespace RentApi.Controllers {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, iden),
                     new Claim("AccountId", user.AccountId.ToString()),
-                    new Claim("UserId", user.Id.ToString())
+                    new Claim("UserId", user.Id.ToString()),
+                    new Claim("SubscriptionTier", res.SubscriptionTier.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
@@ -129,7 +130,8 @@ namespace RentApi.Controllers {
                 message = "登入成功",
                 token = jwt,
                 username = res.Username,
-                role = iden
+                role = iden,
+                subscriptionTier = res.SubscriptionTier
             });
         }
         [HttpPost("register")]
