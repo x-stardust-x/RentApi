@@ -42,5 +42,7 @@ namespace RentApi.Data
         public DbSet<ToolBookingOrder> ToolBookingOrders { get; set; }
         public DbSet<SkillBookingOrder> SkillBookingOrders { get; set; }
 
+
+        public DbSet<FavoriteHouse> FavoriteHouses { get; set; }
     }
 }

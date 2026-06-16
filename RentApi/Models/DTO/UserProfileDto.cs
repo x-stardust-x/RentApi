@@ -26,6 +26,8 @@
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
+
+        public int? SubscriptionTier { get; set; }
     }
     public class UpdateProfileDto {
         public int Id { get; set; }
