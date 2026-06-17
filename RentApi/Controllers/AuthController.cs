@@ -116,7 +116,8 @@ namespace RentApi.Controllers {
                     new Claim(ClaimTypes.Role, iden),
                     new Claim("AccountId", user.AccountId.ToString()),
                     new Claim("UserId", user.Id.ToString()),
-                    new Claim("SubscriptionTier", res.SubscriptionTier.ToString())
+
+                    new Claim("SubscriptionTier",res.SubscriptionTier.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
@@ -131,7 +132,8 @@ namespace RentApi.Controllers {
                 token = jwt,
                 username = res.Username,
                 role = iden,
-                subscriptionTier = res.SubscriptionTier
+
+                subscriptionTier = res.SubscriptionTier 
             });
         }
         [HttpPost("register")]
@@ -210,6 +212,40 @@ namespace RentApi.Controllers {
         [HttpGet("test")]
         public IActionResult Test() {
             return Ok("你有登入");
+        }
+
+        [Authorize]
+        [HttpPost("upgrade-vip")]
+        public async Task<IActionResult> UpgradeToVip()
+        {
+            
+            var accountIdStr = User.FindFirst("AccountId")?.Value;
+
+            if (string.IsNullOrEmpty(accountIdStr) || !int.TryParse(accountIdStr, out int accountId))
+            {
+                return Unauthorized(new { message = "無法驗證您的身分，請重新登入" });
+            }
+
+            
+            var account = await _db.Account.FindAsync(accountId);
+
+            if (account == null)
+                return NotFound(new { message = "找不到該會員帳號" });
+
+            
+            if (account.SubscriptionTier >= 3)
+                return BadRequest(new { message = "已升級，無需重複升級！" });
+
+          
+            account.SubscriptionTier = 3;
+
+          
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "以解鎖所有權限"
+            });
         }
     }
 }

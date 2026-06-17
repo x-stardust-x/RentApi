@@ -20,21 +20,19 @@ public class MatchService
         var userJson = JsonSerializer.Serialize(user);
         var houseJson = JsonSerializer.Serialize(house);
 
-        // ==========================================
-        // 🚨 第一關：C# 嚴格海選 (Hard Filter)
-        // ==========================================
+      
         using var userDoc = JsonDocument.Parse(userJson);
         using var houseDoc = JsonDocument.Parse(houseJson);
         var userRoot = userDoc.RootElement;
         var houseRoot = houseDoc.RootElement;
 
-        // 攔截條件 A：抽菸規範 (假設房子禁菸，但租客抽菸 -> 直接秒殺)
+        
         bool isSmoking = userRoot.TryGetProperty("isSmoking", out var s) && s.GetBoolean();
         bool allowSmoking = houseRoot.TryGetProperty("allowSmoking", out var a) && a.GetBoolean();
 
         if (isSmoking && !allowSmoking)
         {
-            // 系統直接退件，完全不呼叫 AI，省時又省額度！
+           
             return new MatchResult { Score = 0, Reason = "【系統初步篩選未通過】房屋嚴格禁菸，但租客有抽菸習慣，條件不符。" };
         }
 

@@ -11,8 +11,8 @@ namespace RentApi.Controllers
     {
         private readonly MatchService _matchService;
 
-        private readonly AppDbContext _context; 
-        
+        private readonly AppDbContext _context;
+
         // 注入我們剛剛寫好的 MatchService 大腦
         public MatchController(MatchService matchService, AppDbContext context)
         {
@@ -28,7 +28,7 @@ namespace RentApi.Controllers
                 return BadRequest(new { message = "請求資料不可為空！" });
             }
 
-            
+
             var result = await _matchService.CalculateScoreAsync(request.User, request.House);
 
             return Ok(result);
@@ -37,39 +37,61 @@ namespace RentApi.Controllers
         [HttpPost("match-all")]
         public async Task<IActionResult> MatchAllHouses([FromBody] UserProfileDto user)
         {
-            
-            var activeHouses = await _context.Rent_Houses
-                .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
-                .ToListAsync();
+            //if (user.SubscriptionTier < 3)
+            //{
+            //    return BadRequest(new { message = "此為 VIP 專屬功能，請升級「尊榮 AI 秘書」方案解鎖！" });
+            //}
 
-            if (!activeHouses.Any()) {
-                return Ok(new List<HouseMatchResultDto>());
-            }
-
-
-            var matchTasks = activeHouses.Select(async house =>
+            try
             {
-               
-                var aiResult = await _matchService.CalculateScoreAsync(user, house);
+                var activeHouses = await _context.Rent_Houses
+                    .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
+                    .ToListAsync();
 
-                return new HouseMatchResultDto
+                if (!activeHouses.Any())
                 {
-                    HouseId = house.Id,
-                    Name = house.Name,
-                    RentPrice = house.RentPrice,
-                    HouseType = house.HouseType,
-                    Score = aiResult.Score,
-                    Reason = aiResult.Reason
-                };
-            });
+                    return Ok(new List<HouseMatchResultDto>());
+                }
 
+                var matchTasks = activeHouses.Select(async house =>
+                {
+                    
+                    var aiResult = await _matchService.CalculateScoreAsync(user, house);
+
+                    return new HouseMatchResultDto
+                    {
+                        HouseId = house.Id,
+                        Name = house.Name,
+                        RentPrice = house.RentPrice,
+                        HouseType = house.HouseType,
+                        Score = aiResult.Score,
+                        Reason = aiResult.Reason
+                    };
+                });
+
+                var allResults = await Task.WhenAll(matchTasks);
+                var sortedResults = allResults.OrderByDescending(r => r.Score).ToList();
+
+                return Ok(sortedResults);
+            }
             
-            var allResults = await Task.WhenAll(matchTasks);
-
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(503, new
+                {
+                    message = "AI 目前連線異常或額度已滿，請稍後再試！",
+                    details = ex.Message
+                });
+            }
             
-            var sortedResults = allResults.OrderByDescending(r => r.Score).ToList();
-
-            return Ok(sortedResults);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "伺服器內部發生錯誤，工程師正在搶修中！",
+                    details = ex.Message
+                });
+            }
         }
     }
 }
