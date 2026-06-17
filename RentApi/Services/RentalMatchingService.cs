@@ -3,7 +3,11 @@ using RentApi.Data;
 using RentApi.Interfaces;
 using RentApi.Models;
 using RentApi.Models.DTO;
-
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using YourProjectNamespace.Dtos;
 
 namespace RentApi.Services
 {
@@ -16,31 +20,35 @@ namespace RentApi.Services
             _context = context;
         }
 
-        // 抓取所有【上架中】的房子 ( 回傳清單 )
-        //public async Task<IEnumerable<Match_HouseDto>> GetRentalAsync(int id)
+        // 1. 抓取所有【上架中】的房子 (回傳清單)
         public async Task<IEnumerable<Match_HouseDto>> GetRentalAsync()
         {
-            // 使用 LINQ Join 將 RentHouse 和 HouseRules 兩張資料表做關聯查詢
             var query = from house in _context.Rent_Houses
 
                         join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
                         from rule in rules.DefaultIfEmpty()
-                        
+
                         join account in _context.Account on house.AccountId equals account.Id into accounts
-                        from account in accounts.DefaultIfEmpty() // 使用Left join，預防帳號被刪除時房子抓不到
+                        from account in accounts.DefaultIfEmpty()
 
                         join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
-                        where house.Status == 1 // 只要上架的房屋
+                        join loc in _context.Location_Districts on house.DistrictId equals loc.DistrictId into locations
+                        from loc in locations.DefaultIfEmpty()
+
+                        where house.Status == 1
+                            && house.IsVisible == true
+                            && house.RentalStatus == "available"
                         select new Match_HouseDto
                         {
-                            // 房屋基本資料
                             Id = house.Id,
                             AccountId = house.AccountId,
                             DistrictId = house.DistrictId,
                             Name = house.Name,
                             Address = house.Address,
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Description = house.Description,
                             RentPrice = house.RentPrice,
                             IncludeUtilities = house.IncludeUtilities,
@@ -53,7 +61,10 @@ namespace RentApi.Services
                             ViewCount = house.ViewCount,
                             Status = house.Status,
 
-                            // 生活習慣規範
+                            CityName = loc != null ? loc.CityName : "未知縣市",
+                            DistrictName = loc != null ? loc.DistrictName : "未知區域",
+                            ZipCode = loc != null ? loc.ZipCode.ToString() : "",
+
                             HouseId = rule != null ? rule.HouseId : null,
                             SleepTime = rule != null ? (TimeOnly?)rule.SleepTime : null,
                             WakeTime = rule != null ? (TimeOnly?)rule.WakeTime : null,
@@ -61,41 +72,51 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
+                            AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
-                            // 真實名字
                             RealName = user != null ? user.RealName : "未知提供者",
+                            UserName = account != null ? account.Username : "未知提供者",
+                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                            Rating = user != null ? user.Rating : 0,
+                            ReviewCount = user != null ? user.ReviewCount : 0,
 
+                            // 🌟 補上封面圖片
+                            CoverUrl = _context.House_Images
+                                               .Where(img => img.HouseId == house.Id)
+                                               .Select(img => img.Url)
+                                               .FirstOrDefault()
                         };
 
             return await query.ToListAsync();
         }
 
-
-        // 根據 ID 抓取單一房屋【詳情】( 回傳單筆 )
+        // 2. 根據 ID 抓取單一房屋【詳情】
         public async Task<Match_HouseDto?> GetRentalByAsync(int id)
         {
-
             var ruleCount = await _context.HouseRules.CountAsync(r => r.HouseId == id);
             Console.WriteLine($"除錯：資料庫中 HouseId 為 {id} 的規則筆數有 {ruleCount} 筆");
 
             var query = from house in _context.Rent_Houses
 
-                            // 原有的 HouseRules
                         join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
                         from rule in rules.DefaultIfEmpty()
 
-                            // 關聯 Account 表取 UserName
                         join account in _context.Account on house.AccountId equals account.Id into accounts
                         from account in accounts.DefaultIfEmpty()
 
-                            // 關聯 User 表取 Bio、Rating、ReviewCount
                         join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
+                        join loc in _context.Location_Districts on house.DistrictId equals loc.DistrictId into locations
+                        from loc in locations.DefaultIfEmpty()
+
                         where house.Id == id
+                            && house.Status == 1
+                            && house.IsVisible == true
+                            && house.RentalStatus == "available"
                         select new Match_HouseDto
                         {
-                            // 房屋基本資料
                             Id = house.Id,
                             AccountId = house.AccountId,
                             DistrictId = house.DistrictId,
@@ -113,17 +134,17 @@ namespace RentApi.Services
                             ViewCount = house.ViewCount,
                             Status = house.Status,
 
-                            // 出租人資料
-                            // Account 表 UserName
+                            CityName = loc != null ? loc.CityName : "未知縣市",
+                            DistrictName = loc != null ? loc.DistrictName : "未知區域",
+                            ZipCode = loc != null ? loc.ZipCode.ToString() : "",
+
                             UserName = account != null ? account.Username : "未知房東",
-
-                            // User 表 Bio
                             Bio = user != null ? user.Bio : "這位出租人還沒寫自我介紹",
-
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Rating = user != null ? user.Rating : 0,
                             ReviewCount = user != null ? user.ReviewCount : 0,
 
-                            // 生活習慣規範
                             HouseId = rule != null ? rule.HouseId : null,
                             SleepTime = rule != null ? rule.SleepTime : null,
                             WakeTime = rule != null ? rule.WakeTime : null,
@@ -131,148 +152,397 @@ namespace RentApi.Services
                             NoiseTolerance = rule != null ? (int?)rule.NoiseTolerance : null,
                             Pet = rule != null ? rule.Pet : null,
                             Smoke = rule != null ? rule.Smoke : null,
+                            LivingWithLessor = rule != null ? rule.LivingWithLessor : false,
+                            AdvancedRules = rule != null ? rule.AdvancedRules : null,
 
-
-                            // 租賃物圖片，先給空陣列，避免前端報錯
                             ImageUrls = new List<string>(),
-
-
-                            // 真實名字
-                            RealName = user !=  null ? user.RealName : "未知提供者",
-
-                            //// 租賃物圖片
-                            //ImageUrls = _context.House_Images
-                            //                    .Where(img => img.HouseId == house.Id)
-                            //                    .Select(img => img.Url)
+                            RealName = user != null ? user.RealName : "未知提供者"
                         };
 
+            var houseResult = await query.FirstOrDefaultAsync();
 
-                        // 真正執行 SQL 撈出房屋本體
-                        var houseResult = await query.FirstOrDefaultAsync();
+            if (houseResult != null)
+            {
+                var images = await _context.House_Images
+                    .AsNoTracking()
+                    .Where(img => img.HouseId == id)
+                    .OrderByDescending(img => img.IsCover)
+                    .ThenBy(img => img.Id)
+                    .Select(img => img.Url)
+                    .ToListAsync();
 
-                        // 第二階段：如果成功抓到房屋，才去獨立撈取該房屋的所有圖片，並塞回去
-                        if (houseResult != null)
-                        {
-                            var images = await _context.House_Images
-                                                       .Where(img => img.HouseId == id)
-                                                       .Select(img => img.Url)
-                                                       .ToListAsync(); // 在這裡安全地用非同步 List 撈出
+                houseResult.ImageUrls = images;
+                houseResult.CoverUrl = images.FirstOrDefault();
+            }
 
-                            houseResult.ImageUrls = images; // 把圖片陣列塞回物件中
-                        }
-
-                        return houseResult;
-
-
-            //return await query.FirstOrDefaultAsync();
+            return houseResult;
         }
 
-
-
-        // 實作一：抓取所有工具技能
+        // 3. 抓取所有工具技能 (前台探索大廳專用)
         public async Task<IEnumerable<Match_ProductDto>> GetProductAsync()
         {
-            //return await _context.Rent_Products // 注意：如果你的 DbSet 名字不同（例如叫 Products），請改成你的名字
-
-
             var query = from product in _context.Rent_Products
 
-
-                        //// 原有的 HouseRules
-                        //join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
-                        //from rule in rules.DefaultIfEmpty()
-
-
-                            // 關聯 Account 表，取得提供者帳號名稱
-                        join account in _context.Account
-                        on product.AccountId equals account.Id into accounts
+                        join account in _context.Account on product.AccountId equals account.Id into accounts
                         from account in accounts.DefaultIfEmpty()
 
-                            // 關聯 User 表，取得提供者自我介紹、評分、評價數
-                        join user in _context.User
-                            on (account != null ? account.Id : -1) equals user.AccountId into users
+                        join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
                         from user in users.DefaultIfEmpty()
 
-
+                        where product.Status == 1
                         select new Match_ProductDto
                         {
                             Id = product.Id,
                             AccountId = product.AccountId,
+                            DistrictId = null,
                             Name = product.Name,
+                            ProviderPhone = user != null ? user.Phone : "",
+                            ProviderLineId = user != null ? user.LineId : "",
                             Category = product.Category,
                             Description = product.Description,
                             Price = product.Price,
                             PriceUnit = product.PriceUnit,
                             Deposit = product.Deposit,
-                            IsOnline = product.IsOnline,
+                            Status = product.Status,
                             Quantity = product.Quantity,
                             CreatedAt = product.CreatedAt,
                             UpdatedAt = product.UpdatedAt,
                             OwnTool = product.OwnTool,
                             RequiredKnowledge = product.RequiredKnowledge,
                             Address = product.Address,
+                            UsageRequirements = product.UsageRequirements,
+                            UsageTerms = product.UsageTerms,
 
-                            // 提供者資料
+                            CityName = "",
+                            DistrictName = "",
+
                             UserName = account != null ? account.Username : "未知提供者",
                             Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
                             Rating = user != null ? user.Rating : 0,
                             ReviewCount = user != null ? user.ReviewCount : 0,
-
-                            // 真實名字
                             RealName = user != null ? user.RealName : "未知提供者",
+
+                            // 🌟 補上這段撈取圖片的邏輯
+                            CoverUrl = _context.Product_Image
+                                .Where(img => img.ProductId == product.Id)
+                                .OrderByDescending(img => img.IsCover)
+                                .ThenBy(img => img.Id)
+                                .Select(img => img.Url)
+                                .FirstOrDefault()
                         };
+
             return await query.ToListAsync();
         }
 
-        // 實作二：依據 ID 抓取單一工具技能詳情
+        // 4. 根據 ID 抓取單一工具技能詳情
         public async Task<Match_ProductDto?> GetProductByIdAsync(int id)
         {
-            var p = await _context.Rent_Products.FirstOrDefaultAsync(x => x.Id == id); // 💡 這裡也一樣要對齊你的 DbSet 名字
-            if (p == null) return null;
+            var query =
+                from product in _context.Rent_Products.AsNoTracking()
 
+                join account in _context.Account.AsNoTracking()
+                    on product.AccountId equals account.Id into accounts
+                from account in accounts.DefaultIfEmpty()
 
-            var query = from product in _context.Rent_Products
+                join user in _context.User.AsNoTracking()
+                    on (account != null ? account.Id : -1) equals user.AccountId into users
+                from user in users.DefaultIfEmpty()
 
-                            // 關聯 Account 表，取得提供者帳號名稱
-                        join account in _context.Account
-                        on product.AccountId equals account.Id into accounts
-                        from account in accounts.DefaultIfEmpty()
+                where product.Id == id
+                    && product.Status == 1
+                select new Match_ProductDto
+                {
+                    Id = product.Id,
+                    AccountId = product.AccountId,
+                    DistrictId = null,
 
-                            // 關聯 User 表，取得提供者自我介紹、評分、評價數
-                        join user in _context.User
-                            on (account != null ? account.Id : -1) equals user.AccountId into users
-                        from user in users.DefaultIfEmpty()
+                    Name = product.Name,
+                    ProviderPhone = user != null ? user.Phone : "",
+                    ProviderLineId = user != null ? user.LineId : "",
+                    Category = product.Category,
+                    Description = product.Description,
 
-                        where product.Id == id
+                    Price = product.Price,
+                    PriceUnit = product.PriceUnit,
+                    Deposit = product.Deposit,
 
+                    Status = product.Status,
+                    Quantity = product.Quantity,
 
-                        select new Match_ProductDto
-                        {
-                            Id = p.Id,
-                            AccountId = p.AccountId,
-                            Name = p.Name,
-                            Category = p.Category,
-                            Description = p.Description,
-                            Price = p.Price,
-                            PriceUnit = p.PriceUnit,
-                            Deposit = p.Deposit,
-                            IsOnline = p.IsOnline,
-                            Quantity = p.Quantity,
-                            OwnTool = p.OwnTool,
-                            RequiredKnowledge = p.RequiredKnowledge,
-                            Address = p.Address,
+                    OwnTool = product.OwnTool,
+                    RequiredKnowledge = product.RequiredKnowledge,
+                    Address = product.Address,
+                    UsageRequirements = product.UsageRequirements,
+                    UsageTerms = product.UsageTerms,
 
-                            // 提供者資料
-                            UserName = account != null ? account.Username : "未知提供者",
-                            Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
-                            Rating = user != null ? user.Rating : 0,
-                            ReviewCount = user != null ? user.ReviewCount : 0,
+                    CityName = "",
+                    DistrictName = "",
 
-                            // 真實名字
-                            RealName = user !=  null ? user.RealName : "未知提供者",
-                        };
-            return await query.FirstOrDefaultAsync();
+                    UserName = account != null ? account.Username : "未知提供者",
+                    Bio = user != null ? user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = user != null ? user.Rating : 0,
+                    ReviewCount = user != null ? user.ReviewCount : 0,
+                    RealName = user != null ? user.RealName : "未知提供者",
+
+                    ImageUrls = new List<string>()
+                };
+
+            var productResult = await query.FirstOrDefaultAsync();
+
+            if (productResult != null)
+            {
+                var images = await _context.Product_Image
+                    .AsNoTracking()
+                    .Where(img => img.ProductId == id)
+                    .OrderByDescending(img => img.IsCover)
+                    .ThenBy(img => img.Id)
+                    .Select(img => img.Url)
+                    .ToListAsync();
+
+                productResult.ImageUrls = images;
+                productResult.CoverUrl = images.FirstOrDefault();
+            }
+
+            return productResult;
         }
 
+        // 5. 🌟 核心修正：全新重構的綜合篩選器功能
+        public async Task<IEnumerable<object>> SearchRentalsAsync(RentalFilterRequestDto request)
+        {
+            // 步驟 A：將前端傳入的英文城市代碼轉換為資料庫比對用的中文字串
+            string? cityNameKeyword = null;
+            if (!string.IsNullOrEmpty(request.City) && request.City != "all" && request.City.Trim() != "")
+            {
+                cityNameKeyword = request.City.ToLower() switch
+                {
+                    "taipei" => "台北",
+                    "new-taipei" => "新北",
+                    "taoyuan" => "桃園",
+                    "taichung" => "台中",
+                    "tainan" => "台南",
+                    "kaohsiung" => "高雄",
+                    "yunlin" => "雲林",
+                    "pingtung" => "屏東",
+                    "hsinchu" => "新竹",
+                    "miaoli" => "苗栗",
+                    "changhua" => "彰化",
+                    "nantou" => "南投",
+                    "chiayi" => "嘉義",
+                    "yilan" => "宜蘭",
+                    "hualien" => "花蓮",
+                    "taitung" => "台東",
+                    "keelung" => "基隆",
+                    _ => request.City
+                };
+            }
+
+            var combinedList = new List<object>();
+
+            // 步驟 B：🏠 房屋搜尋分支
+            if (request.Category == "all" || request.Category == "room")
+            {
+                // 🌟 修正：把 account 和 user 給 join 回來
+                var houseQuery = from house in _context.Rent_Houses
+                                 join rule in _context.HouseRules on house.Id equals rule.HouseId into rules
+                                 from rule in rules.DefaultIfEmpty()
+                                 join loc in _context.Location_Districts on house.DistrictId equals loc.DistrictId into locations
+                                 from loc in locations.DefaultIfEmpty()
+                                 join account in _context.Account on house.AccountId equals account.Id into accounts
+                                 from account in accounts.DefaultIfEmpty()
+                                 join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
+                                 from user in users.DefaultIfEmpty()
+                                 where house.Status == 1
+                                    && house.IsVisible == true
+                                    && house.RentalStatus == "available"
+                                 select new { house, rule, loc, account, user };
+                
+
+                if (request.CleanLevels != null && request.CleanLevels.Any())
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.CleanLevel.HasValue &&
+                        request.CleanLevels.Contains(x.rule.CleanLevel.Value)
+                    );
+                }
+
+                if (request.NoiseToleranceLevels != null && request.NoiseToleranceLevels.Any())
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.NoiseTolerance.HasValue &&
+                        request.NoiseToleranceLevels.Contains(x.rule.NoiseTolerance.Value)
+                    );
+                }
+
+                // 是否與出租人同住篩選
+                if (request.LivingWithLessor.HasValue)
+                {
+                    houseQuery = houseQuery.Where(x =>
+                        x.rule != null &&
+                        x.rule.LivingWithLessor == request.LivingWithLessor.Value
+                    );
+                }
+
+                // 1. 價格防線
+                houseQuery = houseQuery.Where(x => x.house.RentPrice >= (int)request.PriceMin && x.house.RentPrice <= (int)request.PriceMax);
+
+                // 2. 縣市模糊篩選
+                if (!string.IsNullOrEmpty(cityNameKeyword))
+                {
+                    houseQuery = houseQuery.Where(x => x.house.Address.Contains(cityNameKeyword) || x.loc.CityName.Contains(cityNameKeyword));
+                }
+
+                // 幫助方法：建立一個簡單的過濾器
+                void ApplyAdvancedFilter(List<string> requestList, string filterName)
+                {
+                    if (requestList != null && requestList.Any())
+                    {
+                        foreach (var item in requestList)
+                        {
+                            houseQuery = houseQuery.Where(x => x.rule != null &&
+                                                               x.rule.AdvancedRules != null &&
+                                                               x.rule.AdvancedRules.Contains(item));
+                        }
+                    }
+                }
+
+                // 1. 生活風格
+                if (request.LifeStyle != null && request.LifeStyle.Any())
+                {
+                    var lifestyles = request.LifeStyle.Select(l => l.Trim()).ToList();
+                    if (lifestyles.Contains("禁菸")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Smoke == false);
+                    if (lifestyles.Contains("可養寵物")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.Pet == true);
+                    if (lifestyles.Contains("安靜")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.NoiseTolerance <= 2);
+                }
+
+                // 2. 作息型態
+                if (request.Routines != null && request.Routines.Any())
+                {
+                    if (request.Routines.Contains("早睡早起")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime <= new TimeOnly(23, 0));
+                    if (request.Routines.Contains("夜貓子")) houseQuery = houseQuery.Where(x => x.rule != null && x.rule.SleepTime >= new TimeOnly(23, 0));
+                }
+
+                // 3. 通用進階條件
+                ApplyAdvancedFilter(request.ShowerRestrictions, "ShowerRestrictions");
+                ApplyAdvancedFilter(request.VisitorPolicies, "VisitorPolicies");
+                ApplyAdvancedFilter(request.CookingHabits, "CookingHabits");
+                ApplyAdvancedFilter(request.FridgeAllocations, "FridgeAllocations");
+                ApplyAdvancedFilter(request.InteractionFrequencies, "InteractionFrequencies");
+
+                // 🌟 修正：補齊前端所有需要的欄位與照片
+                var houseResults = await houseQuery.Select(x => new
+                {
+                    Id = x.house.Id,
+                    AccountId = x.house.AccountId,
+                    Name = x.house.Name,
+                    Address = x.house.Address,
+                    RentPrice = x.house.RentPrice,
+                    Description = x.house.Description,
+                    Status = x.house.Status,
+                    CityName = x.loc != null ? x.loc.CityName : "未知縣市",
+                    DistrictName = x.loc != null ? x.loc.DistrictName : "未知區域",
+
+                    UserName = x.account != null ? x.account.Username : "未知提供者",
+                    Bio = x.user != null ? x.user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = x.user != null ? x.user.Rating : 0,
+
+                    // 補上封面圖片
+                    CoverUrl = _context.House_Images.Where(img => img.HouseId == x.house.Id).Select(img => img.Url).FirstOrDefault(),
+
+                    HouseId = x.house.Id,
+                    SleepTime = x.rule != null ? x.rule.SleepTime : null,
+                    WakeTime = x.rule != null ? x.rule.WakeTime : null,
+                    CleanLevel = x.rule != null && x.rule.CleanLevel.HasValue
+                        ? x.rule.CleanLevel.Value
+                        : 3,
+
+                    NoiseTolerance = x.rule != null && x.rule.NoiseTolerance.HasValue
+                        ? x.rule.NoiseTolerance.Value
+                        : 3,
+                    Pet = x.rule != null ? x.rule.Pet : null,
+                    Smoke = x.rule != null ? x.rule.Smoke : null,
+                    LivingWithLessor = x.rule != null ? x.rule.LivingWithLessor : false,
+                    AdvancedRules = x.rule != null ? x.rule.AdvancedRules : null
+
+                }).ToListAsync();
+
+                combinedList.AddRange(houseResults);
+            }
+
+            // 步驟 C：🛠️ 工具技能搜尋分支
+            if (request.Category == "all" || request.Category == "product")
+            {
+                // 🌟 修正：把 account 和 user 給 join 回來
+                var productQuery = from product in _context.Rent_Products
+                                   join account in _context.Account on product.AccountId equals account.Id into accounts
+                                   from account in accounts.DefaultIfEmpty()
+                                   join user in _context.User on (account != null ? account.Id : -1) equals user.AccountId into users
+                                   from user in users.DefaultIfEmpty()
+                                   where product.Status == 1
+                                   select new { product, account, user };
+
+                // 1. 工具價格範圍篩選
+                productQuery = productQuery.Where(x => x.product.Price >= request.PriceMin && x.product.Price <= request.PriceMax);
+
+                // 2. 工具縣市地址模糊篩選
+                if (!string.IsNullOrEmpty(cityNameKeyword))
+                {
+                    productQuery = productQuery.Where(x => x.product.Address != null && x.product.Address.Contains(cityNameKeyword));
+                }
+
+                // 🌟 修正：補齊前端所有需要的欄位與照片
+                var productResults = await productQuery.Select(x => new
+                {
+                    Id = x.product.Id,
+                    AccountId = x.product.AccountId,
+                    Name = x.product.Name,
+                    Category = x.product.Category,
+                    Description = x.product.Description,
+                    Price = x.product.Price,
+                    PriceUnit = x.product.PriceUnit,
+                    Deposit = x.product.Deposit,
+                    Status = x.product.Status,
+                    Quantity = x.product.Quantity,
+                    OwnTool = x.product.OwnTool,
+                    RequiredKnowledge = x.product.RequiredKnowledge,
+                    Address = x.product.Address,
+                    UsageRequirements = x.product.UsageRequirements,
+                    UsageTerms = x.product.UsageTerms,
+                    CityName = "",
+                    DistrictName = "",
+
+                    UserName = x.account != null ? x.account.Username : "未知提供者",
+                    Bio = x.user != null ? x.user.Bio : "這位提供者還沒寫自我介紹",
+                    Rating = x.user != null ? x.user.Rating : 0,
+
+                    // 補上封面圖片
+                    CoverUrl = _context.Product_Image.Where(img => img.ProductId == x.product.Id).Select(img => img.Url).FirstOrDefault()
+                }).ToListAsync();
+
+                combinedList.AddRange(productResults);
+            }
+
+            // 步驟 D：依前端指定的 SortOrder 進行最終排序
+            if (request.SortOrder == "oldest")
+            {
+                return combinedList.OrderBy(x => GetIdFromAnonymous(x)).ToList();
+            }
+            else
+            {
+                return combinedList.OrderByDescending(x => GetIdFromAnonymous(x)).ToList();
+            }
+        }
+
+        // 💡 排序用輔助方法：安全地從動態匿名物件中抽取 Id 進行排序
+        private int GetIdFromAnonymous(object obj)
+        {
+            var prop = obj.GetType().GetProperty("Id");
+            if (prop != null)
+            {
+                return (int)(prop.GetValue(obj) ?? 0);
+            }
+            return 0;
+        }
     }
 }

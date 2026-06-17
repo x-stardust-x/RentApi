@@ -5,12 +5,13 @@ using RentApi.Data;
 using RentApi.Interfaces;
 using RentApi.Services;
 using System.Text;
-
+using RentApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<HouseFacilityService>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -40,6 +41,10 @@ builder.Services.AddAuthentication("Bearer")
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
+
+builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
+
+builder.Services.AddScoped<MatchService>();
 
 builder.Services.AddAuthorization();
 

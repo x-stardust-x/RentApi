@@ -24,17 +24,6 @@ namespace RentApi.Controllers {
         }
         public record ApiResponse(string Message, bool IsSuccessful);
 
-        [HttpGet("getallmember")]
-        public IActionResult AllMember() {
-            var res = _db.Account;
-            return Ok(res);
-        }
-        [Authorize(Roles ="admin")]
-        [HttpGet("getalladmin")]
-        public IActionResult AllAdmin() {
-            var res = _db.Admin;
-            return Ok(res);
-        }
 
         [HttpPost("login/admin")]
         public IActionResult AdminLogin(LoginDto dto) {
@@ -44,10 +33,19 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
+            if (res.isDelete == true) {
+                return Unauthorized(new {
+                    message = "帳號已刪除"
+                });
+            }
             if (res.Pwd != dto.Pwd) {
                 return Unauthorized(new {
                     message = "密碼錯誤"
                 });
+            }
+            string iden = "admin";
+            if(res.isSuper == true) {
+                iden = "super";
             }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
@@ -57,12 +55,12 @@ namespace RentApi.Controllers {
             var claims = new[]
                 {
                     new Claim(ClaimTypes.Name, res.Username),
-                    new Claim(ClaimTypes.Role, "admin"),
+                    new Claim(ClaimTypes.Role, iden),
                     new Claim("AdminId", res.Id.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(360),
+                    expires: DateTime.UtcNow.AddHours(1),
                     signingCredentials: creds
                 );
 
@@ -83,6 +81,11 @@ namespace RentApi.Controllers {
                     message = "帳號不存在"
                 });
             }
+            if(res.IsDelete == true) {
+                return Unauthorized(new {
+                    message = "帳號已刪除"
+                });
+            }
             var user = _db.User.FirstOrDefault(a => a.AccountId == res.Id);
             Console.WriteLine(user.Id);
             if (!PasswordHelper.Verify(dto.Pwd, res.Pwd)) {
@@ -91,14 +94,14 @@ namespace RentApi.Controllers {
                 });
             }
 
-            var iden = "";
+            var iden = "user";
 
-            if(res.Identity == Identity.young) {
-                iden = "young";
-            }
-            else {
-                iden = "old";
-            }
+            //if(res.Identity == Identity.young) {
+            //    iden = "young";
+            //}
+            //else {
+            //    iden = "old";
+            //}
 
             res.LastLoginAt = DateTime.Now;
             _db.SaveChanges();
@@ -111,11 +114,14 @@ namespace RentApi.Controllers {
                 {
                     new Claim(ClaimTypes.Name, res.Username),
                     new Claim(ClaimTypes.Role, iden),
-                    new Claim("UserId", user.Id.ToString())
+                    new Claim("AccountId", user.AccountId.ToString()),
+                    new Claim("UserId", user.Id.ToString()),
+
+                    new Claim("SubscriptionTier",res.SubscriptionTier.ToString())
                 };
             var token = new JwtSecurityToken(
                     claims: claims,
-                    expires: DateTime.UtcNow.AddSeconds(360),
+                    expires: DateTime.UtcNow.AddHours(1),
                     signingCredentials: creds
                 );
 
@@ -125,49 +131,78 @@ namespace RentApi.Controllers {
                 message = "登入成功",
                 token = jwt,
                 username = res.Username,
-                role = iden
+                role = iden,
+
+                subscriptionTier = res.SubscriptionTier 
             });
         }
         [HttpPost("register")]
-        public IActionResult Register(RegisterDto dto) {
+        public async Task<IActionResult> Register(RegisterDto dto) {
             // 🔥 1. 檢查帳號是否存在
             var exist = _db.Account.Any(x => x.Email == dto.Account.Email);
+
             if (exist)
                 return BadRequest(new { message = "帳號已存在" });
+            if (dto.Account.Age < 18) {
+                return BadRequest(new { message = "年齡必須大於18歲" });
+            }
 
+            int isYoung = dto.Account.Age <= 65 ? 0 : 1; // 假設 65 歲以下代表年輕人，否則代表年長者
             string hashedPwd = PasswordHelper.Hash(dto.Account.Pwd);
 
-            // 🔥 2. 建立 Account
-            var account = new Account {
-                Username = dto.Account.Username,
-                Pwd = hashedPwd, // 存哈希後的密碼
-                Email = dto.Account.Email,
-                Birthday = dto.Account.Birthday,
-                Age = dto.Account.Age,
-                Identity = (Identity)dto.Account.Identity,
-            };
+            using var transaction = _db.Database.BeginTransaction();
 
-            _db.Account.Add(account);
-            _db.SaveChanges(); // 先存才能拿 Id
+            try {
+                var account = new Account {
+                    Username = dto.Account.Username,
+                    Pwd = hashedPwd, // 存哈希後的密碼
+                    Email = dto.Account.Email,
+                    Birthday = dto.Account.Birthday,
+                    Age = dto.Account.Age,
+                    Identity = (Identity)isYoung,
+                    Status = true
+                };
+                _db.Account.Add(account);
 
-            // 🔥 3. 建立 User
-            var user = new User {
-                AccountId = account.Id,
-                //Nickname = dto.User.Nickname,
-                //Email = dto.User.Email,
-                //Address = dto.User.Address,
-                CreateAt = DateTime.Now
-            };
+                // 🔥 2. 建立 Account
+                var user = new User {
+                    Account = account,
+                    DistrictId = 1, //防止error
+                    //Nickname = dto.User.Nickname,
+                    //Email = dto.User.Email,
+                    //Address = dto.User.Address,
+                    Rating = 0,
+                    ReviewCount = 0,
+                    CreateAt = DateTime.Now
+                };
 
-            _db.User.Add(user);
-            _db.SaveChanges();
+                _db.User.Add(user);
 
-            var user_habit = new User_Habit {
-                UserId = user.Id,
-            };
+                // 🔥 3. 建立 User
+                var user_habit = new User_Habit {
+                    User = user,
+                    SleepTime = new TimeOnly(22, 0),
+                    WakeTime = new TimeOnly(6, 0),
+                    CleanLevel = 0,
+                    NoiseTolerance = 0,
+                    Pet = false,
+                    Smoke = false,
+                    Interests = ""
+                };
 
-            _db.User_Habit.Add(user_habit);
-            _db.SaveChanges();
+                _db.User_Habit.Add(user_habit);
+
+                await _db.SaveChangesAsync();
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception err) {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new {
+                    message = "註冊失敗",
+                    error = err
+                });
+            }
 
             return Ok(new {
                 message = "註冊成功"
@@ -177,6 +212,40 @@ namespace RentApi.Controllers {
         [HttpGet("test")]
         public IActionResult Test() {
             return Ok("你有登入");
+        }
+
+        [Authorize]
+        [HttpPost("upgrade-vip")]
+        public async Task<IActionResult> UpgradeToVip()
+        {
+            
+            var accountIdStr = User.FindFirst("AccountId")?.Value;
+
+            if (string.IsNullOrEmpty(accountIdStr) || !int.TryParse(accountIdStr, out int accountId))
+            {
+                return Unauthorized(new { message = "無法驗證您的身分，請重新登入" });
+            }
+
+            
+            var account = await _db.Account.FindAsync(accountId);
+
+            if (account == null)
+                return NotFound(new { message = "找不到該會員帳號" });
+
+            
+            if (account.SubscriptionTier >= 3)
+                return BadRequest(new { message = "已升級，無需重複升級！" });
+
+          
+            account.SubscriptionTier = 3;
+
+          
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "以解鎖所有權限"
+            });
         }
     }
 }

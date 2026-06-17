@@ -5,6 +5,9 @@
         public string Email { get; set; } = "";
         public DateTime Birthday { get; set; }
         public int Age { get; set; }
-        public int Identity { get; set; } = 0;
+        //public int Identity { get; set; } = 0;
+
+        public int? SubscriptionTier { get; set; }
+        public DateTime? VipExpireAt { get; set; }
     }
 }

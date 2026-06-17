@@ -7,6 +7,7 @@
 
         public string? Avatar { get; set; }
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Address { get; set; }
 
@@ -18,13 +19,15 @@
         public string? CityName { get; set; }
         public string? DistrictName { get; set; }
         public int? ZipCode { get; set; }
-        public int? SleepTime { get; set; }
-        public int? WakeTime { get; set; }
+        public TimeOnly? SleepTime { get; set; }
+        public TimeOnly? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
+
+        public int? SubscriptionTier { get; set; }
     }
     public class UpdateProfileDto {
         public int Id { get; set; }
@@ -34,6 +37,7 @@
 
         public string? Avatar { get; set; }
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Address { get; set; }
 
@@ -42,12 +46,16 @@
         public decimal? Rating { get; set; }
         public int? ReviewCount { get; set; }
         public int? DistrictId { get; set; }
-        public int? SleepTime { get; set; }
-        public int? WakeTime { get; set; }
+        public TimeOnly? SleepTime { get; set; }
+        public TimeOnly? WakeTime { get; set; }
         public int? CleanLevel { get; set; }
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
     }
+
 }
+
+
+

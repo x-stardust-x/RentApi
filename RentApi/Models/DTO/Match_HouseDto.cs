@@ -9,6 +9,8 @@
         public int? Id { get; set; } // ID
         public int? AccountId { get; set; } // 所屬房東ID
         public string? UserName { get; set; } // 使用者名字
+        public string? ProviderPhone { get; set; }
+        public string? ProviderLineId { get; set; }
         public string? Bio { get; set; } // 使用者自我介紹
         public string? Name { get; set; } // 房屋名稱 (標題)
         public int? DistrictId { get; set; } // 關聯區域 (用於地區篩選)
@@ -25,7 +27,9 @@
         public int? ViewCount { get; set; } // 瀏覽次數
         public int? Status { get; set; } // 狀態 (0:待審, 1:已上架, 2:退回, 3:已租出)
 
-
+        public string CityName { get; set; } = string.Empty;
+        public string DistrictName { get; set; } = string.Empty;
+        public string ZipCode { get; set; } = string.Empty;
 
         // 租賃物圖片 (來自 House_Image)
         public string? Url { get; set; } // 縮圖路徑 (或許要再新增欄位)
@@ -43,7 +47,8 @@
         public int? NoiseTolerance { get; set; }
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
-
+        public string? AdvancedRules { get; set; }
+        public bool LivingWithLessor { get; set; } = false;
 
         // 使用者評價
         public decimal? Rating { get; set; }
@@ -52,6 +57,8 @@
 
         // 真實名字
         public string? RealName { get; set; }
+
+        public string? CoverUrl { get; set; }
 
 
         #endregion
