@@ -2,7 +2,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
-namespace RentApi.Models; // 記得換成你的命名空間
+namespace RentApi.Models; 
 
 public class GeminiService
 {
@@ -12,16 +12,19 @@ public class GeminiService
     public GeminiService(HttpClient http, IConfiguration config)
     {
         _http = http;
-        _apiKey = config["Gemini:ApiKey"] ?? throw new ArgumentNullException("找不到 Gemini API Key！");
+        _apiKey = config["Gemini:ApiKey"];
     }
 
     public async Task<string> GenerateAsync(string prompt)
     {
-        // 🌟 升級成 2.5 代最新引擎，舊的 1.5 已經退休啦！
+        if (string.IsNullOrEmpty(_apiKey) || _apiKey == "YOUR_GCP_API_KEY_HERE") 
+        {
+            throw new Exception("目前AI無法使用");
+        }
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey.Trim()}";
 
         Console.WriteLine("準備打給 Google 的網址是：" + url);
-        // 把我們的 Prompt 裝箱
+        
         var requestBody = new
         {
             contents = new[]
@@ -30,13 +33,13 @@ public class GeminiService
             }
         };
 
-        // 發送請求並等待回應
+       
         var response = await _http.PostAsJsonAsync(url, requestBody);
         response.EnsureSuccessStatusCode();
 
         var responseString = await response.Content.ReadAsStringAsync();
 
-        // 剝開 JSON 外衣，精準拿出 AI 的文字回覆
+       
         using var jsonDoc = JsonDocument.Parse(responseString);
         var root = jsonDoc.RootElement;
 

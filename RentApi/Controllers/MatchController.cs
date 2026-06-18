@@ -28,6 +28,16 @@ namespace RentApi.Controllers
                 return BadRequest(new { message = "請求資料不可為空！" });
             }
 
+            try
+            {
+                var result = await _matchService.CalculateScoreAsync(request.User, request.House);
+                return Ok(result);
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+
 
             var result = await _matchService.CalculateScoreAsync(request.User, request.House);
 
@@ -79,14 +89,14 @@ namespace RentApi.Controllers
             {
                 return StatusCode(503, new
                 {
-                    message = "AI 目前連線異常或額度已滿，請稍後再試！",
+                    message = "AI 目前連線異常，請稍後再試！",
                     details = ex.Message
                 });
             }
             
             catch (Exception ex)
             {
-                return StatusCode(500, new
+                return BadRequest(new
                 {
                     message = "伺服器內部發生錯誤，工程師正在搶修中！",
                     details = ex.Message
