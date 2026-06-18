@@ -39,7 +39,9 @@ namespace RentApi.Controllers
             }
 
 
-            
+            var result = await _matchService.CalculateScoreAsync(request.User, request.House);
+
+            return Ok(result);
         }
 
         [HttpPost("match-all")]
@@ -63,7 +65,7 @@ namespace RentApi.Controllers
 
                 var matchTasks = activeHouses.Select(async house =>
                 {
-
+                    
                     var aiResult = await _matchService.CalculateScoreAsync(user, house);
 
                     return new HouseMatchResultDto
@@ -82,7 +84,7 @@ namespace RentApi.Controllers
 
                 return Ok(sortedResults);
             }
-
+            
             catch (HttpRequestException ex)
             {
                 return StatusCode(503, new
@@ -91,7 +93,7 @@ namespace RentApi.Controllers
                     details = ex.Message
                 });
             }
-
+            
             catch (Exception ex)
             {
                 return BadRequest(new
@@ -100,6 +102,6 @@ namespace RentApi.Controllers
                     details = ex.Message
                 });
             }
-        } 
+        }
     }
 }
