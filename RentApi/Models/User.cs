@@ -15,6 +15,7 @@
         public string? Address { get; set; }
 
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Bio { get; set; }
 
@@ -25,5 +26,6 @@
         public DateTime? CreateAt { get; set; }
 
         public Account Account { get; set; }
+        //public string? Interests { get; set; }
     }
 }

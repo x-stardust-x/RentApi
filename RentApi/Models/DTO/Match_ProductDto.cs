@@ -67,6 +67,8 @@
 
         // 提供者資料
         public string? UserName { get; set; }
+        public string? ProviderPhone { get; set; }
+        public string? ProviderLineId { get; set; }
         public string? Bio { get; set; }
         public decimal? Rating { get; set; }
         public int? ReviewCount { get; set; }
@@ -78,5 +80,6 @@
         // 使用條款 & 須知
         public string? UsageRequirements { get; set; }
         public string? UsageTerms { get; set; }
+        public IEnumerable<string>? ImageUrls { get; set; } // Swiper 多圖陣列
     }
 }

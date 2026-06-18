@@ -7,6 +7,7 @@
 
         public string? Avatar { get; set; }
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Address { get; set; }
 
@@ -25,6 +26,8 @@
         public bool? Pet { get; set; }
         public bool? Smoke { get; set; }
         public string? Interests { get; set; }
+
+        public int? SubscriptionTier { get; set; }
     }
     public class UpdateProfileDto {
         public int Id { get; set; }
@@ -34,6 +37,7 @@
 
         public string? Avatar { get; set; }
         public string? Phone { get; set; }
+        public string? LineId { get; set; }
 
         public string? Address { get; set; }
 
