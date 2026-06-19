@@ -6,6 +6,7 @@ using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
 using RentApi.Services;
+using System.Text.Json;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace RentApi.Controllers {
@@ -93,6 +94,25 @@ namespace RentApi.Controllers {
                 return NotFound("User not found");
             }
             return Ok();
+        }
+        [HttpGet("get-notification/{userId}")]
+        public async Task<IActionResult> GetNotification(int userId) {
+            var setting = await _service.GetSetting(userId);
+            if (setting == null)
+                return NotFound();
+            return Ok(setting);
+        }
+
+        [HttpPut("update-notification/{userId}")]
+        public async Task<IActionResult> UpdateNotification(int userId,[FromBody] NotificationSettingDto request) {
+            var setting = await _service.SaveSetting(userId,request);
+            if (setting == null) {
+                return BadRequest();
+            }
+            return Ok(new {
+                message = "更新成功",
+                data = setting
+            });
         }
     }
 }

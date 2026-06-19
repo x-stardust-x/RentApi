@@ -39,9 +39,9 @@ namespace RentApi.Controllers
             }
 
 
-            var result = await _matchService.CalculateScoreAsync(request.User, request.House);
+            var res = await _matchService.CalculateScoreAsync(request.User, request.House);
 
-            return Ok(result);
+            return Ok(res);
         }
 
         [HttpPost("match-all")]
