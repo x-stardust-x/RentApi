@@ -1,14 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
+using System.Text.Json;
 
 namespace RentApi.Services {
     public class UserService {
         private readonly AppDbContext _db;
-
-        public UserService(AppDbContext db) {
+        private readonly AppDbContext _context;
+        public UserService(AppDbContext db , AppDbContext context) {
             _db = db;
+            _context = context;
         }
 
         public async Task<List<UserDto>> GetAllAsync() {
@@ -41,8 +44,9 @@ namespace RentApi.Services {
         }
 
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
-            return await(
+            return await (
                 from u in _db.User
+                join a in _db.Account on u.AccountId equals a.Id
                 join d in _db.Location_Districts on u.DistrictId equals d.DistrictId
                 join h in _db.User_Habit on u.Id equals h.UserId into habitGroup
                 from h in habitGroup.DefaultIfEmpty()
@@ -59,6 +63,8 @@ namespace RentApi.Services {
                     LineId = u.LineId,
                     Address = u.Address,
                     Bio = u.Bio,
+
+                    SubscriptionTier = a.SubscriptionTier,
 
                     Rating = u.Rating,
                     ReviewCount = u.ReviewCount,
@@ -244,8 +250,7 @@ namespace RentApi.Services {
             int wakeHour = habit?.WakeTime?.Hour ?? 7;    // 🟢 改用 .Hour
 
             // 6. 打包成 DTO 回傳 (對應你 User 表的真實欄位名)
-            return new LessorPublicProfileDto
-            {
+            return new LessorPublicProfileDto {
                 AccountId = accountId,
                 RealName = user.RealName ?? "",
                 Username = user.EnglishName ?? user.RealName ?? "",
@@ -292,6 +297,34 @@ namespace RentApi.Services {
             return res;
         }
 
+        public async Task<NotificationSettingDto?> GetSetting(int userid)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            return JsonSerializer.Deserialize<NotificationSettingDto>(
+                user.NotificationSetting
+            );
+        }
+        public async Task<NotificationSettingDto?> SaveSetting(int userid, NotificationSettingDto dto)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            user.NotificationSetting = JsonSerializer.Serialize(dto);
+
+            _db.SaveChanges();
+
+            return dto;
+        }
+
+
         public Task<bool> ChangeEmailAsync(int userid, string email) {
             var res = _db.Account.FirstOrDefault(x => x.Id == userid);
             if (res == null) {
@@ -310,6 +343,41 @@ namespace RentApi.Services {
             res.Pwd = hashedPwd;
             _db.SaveChanges();
             return Task.FromResult(true);
+        }
+
+        public async Task<bool> UpgradeUserTierAsync(int userId, int tier) 
+        {
+            try
+            {
+               
+                var user = await _context.User.FindAsync(userId);
+
+                if (user == null)
+                {
+                    Console.WriteLine($" 找不到該租客 ID: {userId}");
+                    return false;
+                }
+
+                
+                var account = await _context.Account.FindAsync(user.AccountId);
+
+                if (account == null)
+                {
+                    Console.WriteLine($"找不到關聯的帳號 ID: {user.AccountId}");
+                    return false;
+                }
+
+               
+                account.SubscriptionTier = tier;
+                await _context.SaveChangesAsync();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ 開通 VIP 失敗] 錯誤原因: {ex.Message}");
+                return false;
+            }
         }
     }
 }
