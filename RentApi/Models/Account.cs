@@ -16,6 +16,8 @@ namespace RentApi.Models {
         public int SubscriptionTier { get; set; } = 1;
 
         public DateTime? VipExpireAt { get; set; }
+        public string NotificationSetting { get; set; } = "{}";
+        public DateTime? PasswordChangedAt { get; set; } = DateTime.Now;
     }
     public enum Identity {
         young = 0,

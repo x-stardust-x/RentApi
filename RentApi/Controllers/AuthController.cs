@@ -24,6 +24,17 @@ namespace RentApi.Controllers {
         }
         public record ApiResponse(string Message, bool IsSuccessful);
 
+        [HttpGet("getallmember")]
+        public IActionResult AllMember() {
+            var res = _db.Account;
+            return Ok(res);
+        }
+        [Authorize(Roles ="admin")]
+        [HttpGet("getalladmin")]
+        public IActionResult AllAdmin() {
+            var res = _db.Admin;
+            return Ok(res);
+        }
 
         [HttpPost("login/admin")]
         public IActionResult AdminLogin(LoginDto dto) {

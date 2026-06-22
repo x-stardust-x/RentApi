@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
 using RentApi.Models;
 using RentApi.Models.DTO;
+using System.Text.Json;
 
 namespace RentApi.Services {
     public class UserService {
@@ -42,7 +44,7 @@ namespace RentApi.Services {
         }
 
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
-            return await(
+            return await (
                 from u in _db.User
                 join a in _db.Account on u.AccountId equals a.Id
                 join d in _db.Location_Districts on u.DistrictId equals d.DistrictId
@@ -248,8 +250,7 @@ namespace RentApi.Services {
             int wakeHour = habit?.WakeTime?.Hour ?? 7;    // 🟢 改用 .Hour
 
             // 6. 打包成 DTO 回傳 (對應你 User 表的真實欄位名)
-            return new LessorPublicProfileDto
-            {
+            return new LessorPublicProfileDto {
                 AccountId = accountId,
                 RealName = user.RealName ?? "",
                 Username = user.EnglishName ?? user.RealName ?? "",
