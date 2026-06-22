@@ -99,7 +99,9 @@ namespace RentApi.Controllers {
         public async Task<IActionResult> GetNotification(int userId) {
             var setting = await _service.GetSetting(userId);
             if (setting == null)
-                return NotFound();
+                return NotFound(new {
+                    message = "no data"
+                });
             return Ok(setting);
         }
 
@@ -107,7 +109,9 @@ namespace RentApi.Controllers {
         public async Task<IActionResult> UpdateNotification(int userId,[FromBody] NotificationSettingDto request) {
             var setting = await _service.SaveSetting(userId,request);
             if (setting == null) {
-                return BadRequest();
+                return NotFound(new {
+                    message = "no data"
+                });
             }
             return Ok(new {
                 message = "更新成功",
