@@ -114,5 +114,21 @@ namespace RentApi.Controllers {
                 data = setting
             });
         }
+    
+        [HttpPut("upgrade/{userId}/{tier}")]
+        public async Task<IActionResult> UpgradeUserTier(int userId, int tier)
+        {
+            
+            var result = await _service.UpgradeUserTierAsync(userId, tier);
+
+            if (!result)
+            {
+                
+                return BadRequest(new { message = "金流授權成功，但系統目前連線擁擠，您的 VIP 權限將於 5 分鐘內自動開通！" });
+            }
+
+            return Ok(new { message = "資料庫升級成功！", newTier = tier });
+        }
+
     }
 }

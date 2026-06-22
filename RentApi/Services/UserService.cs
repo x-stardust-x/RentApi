@@ -8,9 +8,10 @@ using System.Text.Json;
 namespace RentApi.Services {
     public class UserService {
         private readonly AppDbContext _db;
-
-        public UserService(AppDbContext db) {
+        private readonly AppDbContext _context;
+        public UserService(AppDbContext db , AppDbContext context) {
             _db = db;
+            _context = context;
         }
 
         public async Task<List<UserDto>> GetAllAsync() {
@@ -45,6 +46,7 @@ namespace RentApi.Services {
         public async Task<UserProfileDto?> GetProfileAsync(int userId) {
             return await (
                 from u in _db.User
+                join a in _db.Account on u.AccountId equals a.Id
                 join d in _db.Location_Districts on u.DistrictId equals d.DistrictId
                 join h in _db.User_Habit on u.Id equals h.UserId into habitGroup
                 from h in habitGroup.DefaultIfEmpty()
@@ -61,6 +63,8 @@ namespace RentApi.Services {
                     LineId = u.LineId,
                     Address = u.Address,
                     Bio = u.Bio,
+
+                    SubscriptionTier = a.SubscriptionTier,
 
                     Rating = u.Rating,
                     ReviewCount = u.ReviewCount,
@@ -80,10 +84,12 @@ namespace RentApi.Services {
                 }
             ).FirstOrDefaultAsync();
         }
-        public async Task<UpdateProfileDto?> UpdateProfileAsync(UpdateProfileDto dto) {
+        public async Task<UpdateProfileDto?> UpdateProfileAsync(UpdateProfileDto dto)
+        {
             var res = await _db.User.FirstOrDefaultAsync(x => x.Id == dto.Id);
 
-            if (res == null) {
+            if (res == null)
+            {
                 return null;
             }
 
@@ -99,8 +105,10 @@ namespace RentApi.Services {
             var res_habit = await _db.User_Habit
                 .FirstOrDefaultAsync(x => x.UserId == dto.Id);
 
-            if (res_habit == null) {
-                res_habit = new User_Habit {
+            if (res_habit == null)
+            {
+                res_habit = new User_Habit
+                {
                     UserId = dto.Id
                 };
 
@@ -132,7 +140,7 @@ namespace RentApi.Services {
 
         public Task<bool> DeleteUserAsync(int userid) {
             var res = _db.Account.FirstOrDefault(x => x.Id == userid);
-            if (res == null) {
+            if(res == null) {
                 return Task.FromResult(false);
             }
             res.IsDelete = true;
@@ -140,7 +148,8 @@ namespace RentApi.Services {
             return Task.FromResult(true);
         }
 
-        public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId) {
+        public async Task<LessorPublicProfileDto?> GetPublicProfileByAccountIdAsync(int accountId)
+        {
             // 1. 撈取使用者基本資料 (將 _context 改為 _db，Users 改為 User)
             var user = await _db.User.FirstOrDefaultAsync(u => u.AccountId == accountId);
             if (user == null) return null;
@@ -153,7 +162,8 @@ namespace RentApi.Services {
             var activeHousesRaw = await _db.Rent_Houses
     .AsNoTracking()
     .Where(h => h.AccountId == accountId && h.Status == 1)
-    .Select(h => new {
+    .Select(h => new
+    {
         h.Id,
         h.Name,
         h.RentPrice
@@ -168,14 +178,16 @@ namespace RentApi.Services {
                 .OrderByDescending(img => img.IsCover)
                 .ThenBy(img => img.Id)
                 .GroupBy(img => img.HouseId)
-                .Select(g => new {
+                .Select(g => new
+                {
                     HouseId = g.Key,
                     Url = g.Select(x => x.Url).FirstOrDefault()
                 })
                 .ToDictionaryAsync(x => x.HouseId, x => x.Url ?? "");
 
             var activeHouses = activeHousesRaw
-                .Select(h => new LessorPublicProfileDto.HouseDto {
+                .Select(h => new LessorPublicProfileDto.HouseDto
+                {
                     Id = h.Id,
                     Name = h.Name ?? "未命名房源",
                     RentPrice = h.RentPrice,
@@ -190,7 +202,8 @@ namespace RentApi.Services {
             var activeProductsRaw = await _db.Rent_Products
                 .AsNoTracking()
                 .Where(p => p.AccountId == accountId && p.Status == 1)
-                .Select(p => new {
+                .Select(p => new
+                {
                     p.Id,
                     p.Name,
                     p.Category,
@@ -207,14 +220,16 @@ namespace RentApi.Services {
                 .OrderByDescending(img => img.IsCover)
                 .ThenBy(img => img.Id)
                 .GroupBy(img => img.ProductId)
-                .Select(g => new {
+                .Select(g => new
+                {
                     ProductId = g.Key,
                     Url = g.Select(x => x.Url).FirstOrDefault()
                 })
                 .ToDictionaryAsync(x => x.ProductId, x => x.Url ?? "");
 
             var activeProducts = activeProductsRaw
-                .Select(p => new LessorPublicProfileDto.ProductDto {
+                .Select(p => new LessorPublicProfileDto.ProductDto
+                {
                     Id = p.Id,
                     Name = p.Name ?? "未命名資源",
                     Category = p.Category ?? "",
@@ -276,12 +291,39 @@ namespace RentApi.Services {
                     email = a.Email,
                     phone = u.Phone,
                     lineId = u.LineId,
-                    pwdchangedat = a.PasswordChangedAt
                 }
             ).FirstOrDefaultAsync();
 
             return res;
         }
+
+        public async Task<NotificationSettingDto?> GetSetting(int userid)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            return JsonSerializer.Deserialize<NotificationSettingDto>(
+                user.NotificationSetting
+            );
+        }
+        public async Task<NotificationSettingDto?> SaveSetting(int userid, NotificationSettingDto dto)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            user.NotificationSetting = JsonSerializer.Serialize(dto);
+
+            _db.SaveChanges();
+
+            return dto;
+        }
+
 
         public Task<bool> ChangeEmailAsync(int userid, string email) {
             var res = _db.Account.FirstOrDefault(x => x.Id == userid);
@@ -299,33 +341,43 @@ namespace RentApi.Services {
             }
             string hashedPwd = PasswordHelper.Hash(pwd);
             res.Pwd = hashedPwd;
-            res.PasswordChangedAt = DateTime.Now;
             _db.SaveChanges();
             return Task.FromResult(true);
         }
-        public async Task<NotificationSettingDto?> GetSetting(int userid) {
-            var user = await _db.Account
-                .FirstOrDefaultAsync(x => x.Id == userid);
 
-            if (user == null)
-                return null;
+        public async Task<bool> UpgradeUserTierAsync(int userId, int tier) 
+        {
+            try
+            {
+               
+                var user = await _context.User.FindAsync(userId);
 
-            return JsonSerializer.Deserialize<NotificationSettingDto>(
-                user.NotificationSetting
-            );
-        }
-        public async Task<NotificationSettingDto?> SaveSetting(int userid, NotificationSettingDto dto) {
-            var user = await _db.Account
-                .FirstOrDefaultAsync(x => x.Id == userid);
+                if (user == null)
+                {
+                    Console.WriteLine($" 找不到該租客 ID: {userId}");
+                    return false;
+                }
 
-            if (user == null)
-                return null;
+                
+                var account = await _context.Account.FindAsync(user.AccountId);
 
-            user.NotificationSetting = JsonSerializer.Serialize(dto);
+                if (account == null)
+                {
+                    Console.WriteLine($"找不到關聯的帳號 ID: {user.AccountId}");
+                    return false;
+                }
 
-            _db.SaveChanges();
+               
+                account.SubscriptionTier = tier;
+                await _context.SaveChangesAsync();
 
-            return dto;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ 開通 VIP 失敗] 錯誤原因: {ex.Message}");
+                return false;
+            }
         }
     }
 }
