@@ -291,6 +291,7 @@ namespace RentApi.Services {
                     email = a.Email,
                     phone = u.Phone,
                     lineId = u.LineId,
+                    pwdchangedat = a.PasswordChangedAt
                 }
             ).FirstOrDefaultAsync();
 
