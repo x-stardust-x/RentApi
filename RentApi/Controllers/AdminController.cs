@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RentApi.Data;
 using RentApi.Models;
+using RentApi.Models.DTO;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -9,7 +10,7 @@ namespace RentApi.Controllers {
     [ApiController]
     public class AdminController : ControllerBase {
         AppDbContext _context;
-        public AdminController(AppDbContext context) { 
+        public AdminController(AppDbContext context) {
             _context = context;
         }
         // GET: api/<AdminController>
@@ -30,11 +31,16 @@ namespace RentApi.Controllers {
 
         // POST api/<AdminController>
         [HttpPost]
-        public IActionResult Post([FromBody] Admin admin) {
+        public IActionResult Post([FromBody] AdminDto admin) {
             if (admin == null)
                 return BadRequest();
-            admin.Pwd = "0000";
-            _context.Admin.Add(admin);
+            Admin admin1 = new Admin {
+                Username = admin.Username,
+                Pwd = admin.Pwd,
+                Email = admin.Email,
+                Phone = admin.Phone,
+            };
+            _context.Admin.Add(admin1);
             _context.SaveChanges();
             return Ok(admin);
         }
@@ -55,11 +61,20 @@ namespace RentApi.Controllers {
             _context.SaveChanges();
             return Ok(existingAdmin);
         }
+
+        [HttpPut("edit-password/{id}")]
+        public IActionResult ResetPassword(int id, [FromBody] string pwd) {
+            var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
+            if (existingAdmin == null)
+                return NotFound();
+            existingAdmin.Pwd = pwd;
+            _context.SaveChanges();
+            return Ok(existingAdmin);
+        }
+
         //password reset
         [HttpPut("reset-password/{id}")]
-        public IActionResult ResetPassword(int id, [FromBody] Admin admin) {
-            if (admin == null || admin.Id != id)
-                return BadRequest();
+        public IActionResult ResetPassword(int id) {
             var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
             if (existingAdmin == null)
                 return NotFound();
@@ -68,13 +83,23 @@ namespace RentApi.Controllers {
             return Ok(existingAdmin);
         }
 
-        // DELETE api/<AdminController>/5
-        [HttpDelete("{id}")]
+        //Super 開關
+        [HttpPut("SuperOc/{id}")]
+        public IActionResult SuperOc(int id) {
+            var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
+            if (existingAdmin == null)
+                return NotFound();
+            existingAdmin.isSuper = !existingAdmin.isSuper;
+            _context.SaveChanges();
+            return Ok(existingAdmin);
+        }
+        // Delete(fake) api/<AdminController>/5
+        [HttpPut("delete/{id}")]
         public IActionResult Delete(int id) {
             var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
             if (existingAdmin == null)
                 return NotFound();
-            _context.Admin.Remove(existingAdmin);
+            existingAdmin.isDelete = true;
             _context.SaveChanges();
             return Ok(existingAdmin);
         }

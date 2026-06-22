@@ -9,9 +9,13 @@ namespace RentApi.Models {
         public DateTime? Birthday { get; set; }
         public int Age { get; set; }
         public Identity Identity { get; set; }
-        public bool Status { get; set; } = false;
+        public bool Status { get; set; } = true;
         public bool IsDelete { get; set; } = false;
         public DateTime? LastLoginAt { get; set; }
+
+        public int SubscriptionTier { get; set; } = 1;
+
+        public DateTime? VipExpireAt { get; set; }
     }
     public enum Identity {
         young = 0,

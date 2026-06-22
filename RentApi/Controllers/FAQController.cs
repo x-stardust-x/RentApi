@@ -35,7 +35,18 @@ namespace RentApi.Controllers {
             }
             return Ok(faqItems);
         }
-        [HttpPost]
+        [HttpPost("categories")]
+        public async Task<IActionResult> CreateCategory(FAQ_CategoryDto category) {
+            try {
+                var newCategory = await _service.CreateCategoryAsync(category);
+                return CreatedAtAction(nameof(GetCategories), new { id = newCategory.Id }, newCategory);
+            }
+            catch (Exception err) {
+                return BadRequest(err.Message);
+                throw;
+            }
+        }
+        [HttpPost("FAQ_Items")]
         public async Task<IActionResult> CreateFAQItem(FAQDto item) {
             var faqItem = await _service.CreateFAQItemAsync(item);
             if (faqItem == null) {
@@ -43,7 +54,15 @@ namespace RentApi.Controllers {
             }
             return CreatedAtAction(nameof(GetFAQItems), new { id = faqItem.Id }, faqItem);
         }
-        [HttpPut("{id}")]
+        [HttpPut("categories/{id}")]
+        public async Task<IActionResult> UpdateCategory(int id, FAQ_CategoryDto category) {
+            var faqCategory = await _service.UpdateCategoryAsync(id, category);
+            if (faqCategory == null) {
+                return NotFound("FAQ category not found.");
+            }
+            return Ok(faqCategory);
+        }
+        [HttpPut("FAQ_Items/{id}")]
         public async Task<IActionResult> UpdateFAQItem(int id, FAQDto item) {
             var faqItem = await _service.UpdateFAQItemAsync(id, item);
             if (faqItem == null) {
@@ -51,10 +70,17 @@ namespace RentApi.Controllers {
             }
             return Ok(faqItem);
         }
-        [HttpDelete("{id}")]
+        [HttpDelete("categories/{id}")]
+        public async Task<IActionResult> DeleteCategory(int id) {
+            var result = await _service.DeleteCategoryAndItemAsync(id);
+            return Ok(new { message = result });
+        }
+        [HttpDelete("FAQ_Items/{id}")]
         public async Task<IActionResult> DeleteFAQItem(int id) {
             var result = await _service.DeleteFAQItemAsync(id);
-            return Ok(result);
+            return Ok(new {
+                message = result
+            });
         }
     }
 }

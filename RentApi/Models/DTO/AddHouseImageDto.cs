@@ -1,4 +1,4 @@
-﻿namespace CoLiving.models
+﻿namespace RentApi.Models
 {
     public class AddHouseImageDto
     {

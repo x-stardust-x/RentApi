@@ -34,7 +34,7 @@ namespace RentApi.Models
         public int? Deposit { get; set; }
 
         // 是否上架 (bit -> bool)
-        public bool? IsOnline { get; set; }
+        public int Status { get; set; } = 0;
 
         // 數量 (int)
         public int? Quantity { get; set; }
@@ -57,5 +57,8 @@ namespace RentApi.Models
         // 使用條款 & 須知
         public string? UsageRequirements { get; set; }
         public string? UsageTerms { get; set; }
+
+        [ForeignKey("ProductId")]
+        public virtual ICollection<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
     }
 }

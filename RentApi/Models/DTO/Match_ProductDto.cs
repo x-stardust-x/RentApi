@@ -15,7 +15,7 @@
 
 
 
-
+        public string? CoverUrl { get; set; }
 
         // 主鍵 ID（不允許 Null）
         public int Id { get; set; }
@@ -42,7 +42,7 @@
         public int? Deposit { get; set; }
 
         // 是否上架 (bit -> bool)
-        public bool? IsOnline { get; set; }
+        public int Status { get; set; } = 0;
 
         // 數量 (int)
         public int? Quantity { get; set; }
@@ -67,6 +67,8 @@
 
         // 提供者資料
         public string? UserName { get; set; }
+        public string? ProviderPhone { get; set; }
+        public string? ProviderLineId { get; set; }
         public string? Bio { get; set; }
         public decimal? Rating { get; set; }
         public int? ReviewCount { get; set; }
@@ -78,5 +80,6 @@
         // 使用條款 & 須知
         public string? UsageRequirements { get; set; }
         public string? UsageTerms { get; set; }
+        public IEnumerable<string>? ImageUrls { get; set; } // Swiper 多圖陣列
     }
 }

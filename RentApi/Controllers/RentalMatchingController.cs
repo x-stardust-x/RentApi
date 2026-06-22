@@ -78,9 +78,25 @@ namespace RentApi.Controllers
         [HttpGet("RentProduct/{id}")]
         public async Task<ActionResult<Match_ProductDto>> GetProductById(int id)
         {
-            var product = await _rentalMatchingService.GetProductByIdAsync(id);
-            if (product == null) return NotFound();
-            return Ok(product);
+            try
+            {
+                var product = await _rentalMatchingService.GetProductByIdAsync(id);
+
+                if (product == null)
+                {
+                    return NotFound($"找不到 ID 為 {id} 的工具或技能資料");
+                }
+
+                return Ok(product);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"伺服器發生錯誤：{ex.Message}");
+            }
+
+            //var product = await _rentalMatchingService.GetProductByIdAsync(id);
+            //if (product == null) return NotFound();
+            //return Ok(product);
         }
 
         // 端點五：POST api/RentalMatching/search

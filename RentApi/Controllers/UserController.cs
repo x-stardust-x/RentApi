@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RentApi.Data;
+using RentApi.Models;
 using RentApi.Models.DTO;
 using RentApi.Services;
-using Microsoft.AspNetCore.Authorization;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace RentApi.Controllers {
     [Route("api/[controller]")]
@@ -39,6 +41,22 @@ namespace RentApi.Controllers {
                 return NotFound("User not found");
             return Ok(result);
         }
+        [HttpPut("status/{userid}")]
+        public async Task<IActionResult> ChangeStatus(int userid) {
+            var result = await _service.ChangeStatusAsync(userid);
+            if (!result)
+                return NotFound("User not found");
+            return Ok();
+        }
+
+        [HttpPut("delete/{userid}")]
+        public async Task<IActionResult> DeleteUser(int userid) {
+            var result = await _service.DeleteUserAsync(userid);
+            if (!result) {
+                return NotFound("User not found");
+            }
+            return Ok();
+        }
 
         // 取得出租人公開個人檔案 (無論有沒有登入都能看)
         [AllowAnonymous]
@@ -52,6 +70,45 @@ namespace RentApi.Controllers {
 
             return Ok(result);
         }
-    }
 
+        [HttpGet("account-setting/{userId}")]
+        public async Task<IActionResult> GetAccountSetting(int userId) {
+            var result = await _service.GetAccountSettingAsync(userId);
+            if (result == null)
+                return NotFound("Account settings not found");
+            return Ok(result);
+        }
+        [HttpPut("update-email/{userId}")]
+        public async Task<IActionResult> UpdateEmail(int userId, [FromBody] UpdateEmailDto dto) {
+            var result = await _service.ChangeEmailAsync(userId, dto.Email);
+            if(!result) {
+                return NotFound("User not found");
+            }
+            return Ok();
+        }
+        [HttpPut("update-pwd/{userId}")]
+        public async Task<IActionResult> UpdatePwd(int userId, [FromBody] UpdatePwdDto dto) {
+            var result = await _service.ChangePwdAsync(userId, dto.Pwd);
+            if (!result) {
+                return NotFound("User not found");
+            }
+            return Ok();
+        }
+
+        [HttpPut("upgrade/{userId}/{tier}")]
+        public async Task<IActionResult> UpgradeUserTier(int userId, int tier)
+        {
+            
+            var result = await _service.UpgradeUserTierAsync(userId, tier);
+
+            if (!result)
+            {
+                
+                return BadRequest(new { message = "金流授權成功，但系統目前連線擁擠，您的 VIP 權限將於 5 分鐘內自動開通！" });
+            }
+
+            return Ok(new { message = "資料庫升級成功！", newTier = tier });
+        }
+
+    }
 }

@@ -6,6 +6,8 @@
         public int AccountId { get; set; }     // 改用你的 AccountId
         public string Username { get; set; }   // 帳號暱稱
         public string RealName { get; set; }   // 真實姓名
+        public string? Phone { get; set; }
+        public string? LineId { get; set; }
         public string AvatarUrl { get; set; }  // 大頭貼
         public string BannerUrl { get; set; }  // 建議新增的橫幅圖片
         public string ProfileTitle { get; set; }    // 建議新增：如"退休家具設計師"
@@ -28,7 +30,7 @@
         public int NoiseTolerance { get; set; } // 噪音容忍度 (1-5)
         public bool Pet { get; set; }           // 是否養/接受寵物
         public bool Smoke { get; set; }         // 是否抽菸
-        public string Interests { get; set; }   // 興趣標籤 (JSON 字串)
+        public string Interests { get; set; } = string.Empty;   // 興趣標籤 (JSON 字串)
 
         // 刊登資源與評價清單
         public List<HouseDto> ActiveHouses { get; set; }
@@ -43,15 +45,18 @@
             public string Name { get; set; }
             public int RentPrice { get; set; }
             public string MainImageUrl { get; set; }
+            public string DisplayType { get; set; } = "room";
         }
 
         public class ProductDto
         {
             public int Id { get; set; }
             public string Name { get; set; }
+            public string Category { get; set; } = "";
             public int Price { get; set; }          // 你的欄位叫 Price
             public string PriceUnit { get; set; }   // 單位 (次/小時/日)
             public string MainImageUrl { get; set; } // 從 Image_Store 撈取 Type='Product' 且 IsMain=true 的 Url
+            public string DisplayType { get; set; } = "product";
         }
 
         public class ReviewDto
