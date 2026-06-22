@@ -297,6 +297,34 @@ namespace RentApi.Services {
             return res;
         }
 
+        public async Task<NotificationSettingDto?> GetSetting(int userid)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            return JsonSerializer.Deserialize<NotificationSettingDto>(
+                user.NotificationSetting
+            );
+        }
+        public async Task<NotificationSettingDto?> SaveSetting(int userid, NotificationSettingDto dto)
+        {
+            var user = await _db.Account
+                .FirstOrDefaultAsync(x => x.Id == userid);
+
+            if (user == null)
+                return null;
+
+            user.NotificationSetting = JsonSerializer.Serialize(dto);
+
+            _db.SaveChanges();
+
+            return dto;
+        }
+
+
         public Task<bool> ChangeEmailAsync(int userid, string email) {
             var res = _db.Account.FirstOrDefault(x => x.Id == userid);
             if (res == null) {

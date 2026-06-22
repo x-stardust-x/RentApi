@@ -114,7 +114,7 @@ namespace RentApi.Controllers {
                 data = setting
             });
         }
-    }
+    
         [HttpPut("upgrade/{userId}/{tier}")]
         public async Task<IActionResult> UpgradeUserTier(int userId, int tier)
         {
