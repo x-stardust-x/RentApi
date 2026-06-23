@@ -71,7 +71,7 @@ namespace RentApi.Controllers
 
                
                 var houseLookup = activeHouses.ToDictionary(h => h.Id);
-
+                var aiResult = await _matchService.CalculateScoreAsync(user, house);
                
                 var sortedResults = aiResults
                     .Where(ai => houseLookup.ContainsKey(ai.HouseId)) 
@@ -112,6 +112,9 @@ namespace RentApi.Controllers
                     details = ex.Message
                 });
             }
+        }
+        }
+        }
         }
     }
 }
