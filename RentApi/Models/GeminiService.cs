@@ -35,6 +35,13 @@ public class GeminiService
 
        
         var response = await _http.PostAsJsonAsync(url, requestBody);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorDetails = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($" 【Gemini 拒絕連線原因】: {errorDetails}");
+        }
+
         response.EnsureSuccessStatusCode();
 
         var responseString = await response.Content.ReadAsStringAsync();
