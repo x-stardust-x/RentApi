@@ -70,7 +70,10 @@ namespace RentApi.Controllers
                         RentPrice = house.RentPrice,
                         HouseType = house.HouseType,
                         Score = aiResult.Score,
-                        Reason = aiResult.Reason
+                       
+                        Basis = aiResult.Basis,
+                        Risk = aiResult.Risk,
+                        Suggestion = aiResult.Suggestion
                     };
                 });
 
