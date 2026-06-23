@@ -30,7 +30,15 @@ namespace RentApi.Controllers
 
             try
             {
-                var result = await _matchService.CalculateScoreAsync(request.User, request.House);
+                
+                var singleHouseList = new List<object> { request.House };
+
+               
+                var batchResults = await _matchService.CalculateBatchScoresAsync(request.User, singleHouseList);
+
+                
+                var result = batchResults.FirstOrDefault();
+
                 return Ok(result);
             }
             catch (Exception ex)
@@ -42,13 +50,14 @@ namespace RentApi.Controllers
         [HttpPost("match-all")]
         public async Task<IActionResult> MatchAllHouses([FromBody] UserProfileDto user)
         {
-            //if (user.SubscriptionTier < 3)
-            //{
-            //    return BadRequest(new { message = "此為 VIP 專屬功能，請升級「尊榮 AI 秘書」方案解鎖！" });
-            //}
+            // if (user.SubscriptionTier < 3)
+            // {
+            //     return BadRequest(new { message = "此為 VIP 專屬功能，請升級「尊榮 AI 秘書」方案解鎖！" });
+            // }
 
             try
             {
+                // 1. 撈出所有可出租的房子
                 var activeHouses = await _context.Rent_Houses
                     .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
                     .ToListAsync();
@@ -58,40 +67,43 @@ namespace RentApi.Controllers
                     return Ok(new List<HouseMatchResultDto>());
                 }
 
-                var matchTasks = activeHouses.Select(async house =>
-                {
-                    
-                    var aiResult = await _matchService.CalculateScoreAsync(user, house);
+                var aiResults = await _matchService.CalculateBatchScoresAsync(user, activeHouses);
 
-                    return new HouseMatchResultDto
+               
+                var houseLookup = activeHouses.ToDictionary(h => h.Id);
+                
+               
+                var sortedResults = aiResults
+                    .Where(ai => houseLookup.ContainsKey(ai.HouseId)) 
+                    .Select(ai =>
                     {
-                        HouseId = house.Id,
-                        Name = house.Name,
-                        RentPrice = house.RentPrice,
-                        HouseType = house.HouseType,
-                        Score = aiResult.Score,
-                       
-                        Basis = aiResult.Basis,
-                        Risk = aiResult.Risk,
-                        Suggestion = aiResult.Suggestion
-                    };
-                });
-
-                var allResults = await Task.WhenAll(matchTasks);
-                var sortedResults = allResults.OrderByDescending(r => r.Score).ToList();
+                        var house = houseLookup[ai.HouseId];
+                        return new HouseMatchResultDto
+                        {
+                            HouseId = house.Id,
+                            Name = house.Name,
+                            RentPrice = house.RentPrice,
+                            HouseType = house.HouseType,
+                            Score = ai.Score,
+                            Basis = ai.Basis,
+                            Risk = ai.Risk,
+                            Suggestion = ai.Suggestion
+                        };
+                    })
+                    .OrderByDescending(r => r.Score) 
+                    .ToList();
 
                 return Ok(sortedResults);
             }
-            
             catch (HttpRequestException ex)
             {
+                
                 return StatusCode(503, new
                 {
                     message = "AI 目前連線異常，請稍後再試！",
                     details = ex.Message
                 });
             }
-            
             catch (Exception ex)
             {
                 return BadRequest(new
