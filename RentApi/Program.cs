@@ -42,9 +42,8 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddHttpClient<GeminiService>();
-
-builder.Services.AddScoped<MatchService>();
+builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
+builder.Services.AddScoped<RentApi.Models.MatchService>();
 
 builder.Services.AddAuthorization();
 
