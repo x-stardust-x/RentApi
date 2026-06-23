@@ -58,21 +58,47 @@ namespace RentApi.Controllers
                     return Ok(new List<HouseMatchResultDto>());
                 }
 
+                var semaphore = new SemaphoreSlim(2);
+
                 var matchTasks = activeHouses.Select(async house =>
                 {
-                    
-                    var aiResult = await _matchService.CalculateScoreAsync(user, house);
+                    await semaphore.WaitAsync();
 
-                    return new HouseMatchResultDto
+                    try
                     {
-                        HouseId = house.Id,
-                        Name = house.Name,
-                        RentPrice = house.RentPrice,
-                        HouseType = house.HouseType,
-                        Score = aiResult.Score,
-                        Reason = aiResult.Reason
-                    };
+                        var aiResult = await _matchService.CalculateScoreAsync(user, house);
+
+                        return new HouseMatchResultDto
+                        {
+                            HouseId = house.Id,
+                            Name = house.Name,
+                            RentPrice = house.RentPrice,
+                            HouseType = house.HouseType,
+                            Score = aiResult.Score,
+                            Reason = aiResult.Reason
+                        };
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
                 });
+
+                //var matchTasks = activeHouses.Select(async house =>
+                //{
+
+                //    var aiResult = await _matchService.CalculateScoreAsync(user, house);
+
+                //    return new HouseMatchResultDto
+                //    {
+                //        HouseId = house.Id,
+                //        Name = house.Name,
+                //        RentPrice = house.RentPrice,
+                //        HouseType = house.HouseType,
+                //        Score = aiResult.Score,
+                //        Reason = aiResult.Reason
+                //    };
+                //});
 
                 var allResults = await Task.WhenAll(matchTasks);
                 var sortedResults = allResults.OrderByDescending(r => r.Score).ToList();

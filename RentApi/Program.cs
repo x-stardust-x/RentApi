@@ -42,7 +42,7 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
+builder.Services.AddHttpClient<GeminiService>();
 
 builder.Services.AddScoped<MatchService>();
 
@@ -68,6 +68,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

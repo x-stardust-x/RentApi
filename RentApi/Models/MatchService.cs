@@ -1,7 +1,6 @@
 ﻿using RentApi.Models.DTO;
 using System.Text.Json;
-
-using RentApi.Models;
+using RentApi.Services;
 namespace RentApi.Models; // 記得換成你的命名空間
 
 public class MatchService
