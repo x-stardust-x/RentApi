@@ -33,15 +33,10 @@ namespace RentApi.Controllers
                 var result = await _matchService.CalculateScoreAsync(request.User, request.House);
                 return Ok(result);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
-
-
-            var res = await _matchService.CalculateScoreAsync(request.User, request.House);
-
-            return Ok(res);
         }
 
         [HttpPost("match-all")]
@@ -75,7 +70,10 @@ namespace RentApi.Controllers
                         RentPrice = house.RentPrice,
                         HouseType = house.HouseType,
                         Score = aiResult.Score,
-                        Reason = aiResult.Reason
+                       
+                        Basis = aiResult.Basis,
+                        Risk = aiResult.Risk,
+                        Suggestion = aiResult.Suggestion
                     };
                 });
 

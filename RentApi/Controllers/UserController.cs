@@ -99,7 +99,9 @@ namespace RentApi.Controllers {
         public async Task<IActionResult> GetNotification(int userId) {
             var setting = await _service.GetSetting(userId);
             if (setting == null)
-                return NotFound();
+                return NotFound(new {
+                    message = "no data"
+                });
             return Ok(setting);
         }
 
@@ -107,12 +109,30 @@ namespace RentApi.Controllers {
         public async Task<IActionResult> UpdateNotification(int userId,[FromBody] NotificationSettingDto request) {
             var setting = await _service.SaveSetting(userId,request);
             if (setting == null) {
-                return BadRequest();
+                return NotFound(new {
+                    message = "no data"
+                });
             }
             return Ok(new {
                 message = "更新成功",
                 data = setting
             });
         }
+    
+        [HttpPut("upgrade/{userId}/{tier}")]
+        public async Task<IActionResult> UpgradeUserTier(int userId, int tier)
+        {
+            
+            var result = await _service.UpgradeUserTierAsync(userId, tier);
+
+            if (!result)
+            {
+                
+                return BadRequest(new { message = "金流授權成功，但系統目前連線擁擠，您的 VIP 權限將於 5 分鐘內自動開通！" });
+            }
+
+            return Ok(new { message = "資料庫升級成功！", newTier = tier });
+        }
+
     }
 }

@@ -283,9 +283,7 @@ namespace RentApi.Controllers
                         ? $"B-FIX-{v.Id}"
                         : v.ReservationNo,
 
-                    Status = v.Status == 1 ? "confirmed" :
-                             v.Status == 2 ? "rejected" :
-                             "pending",
+                    Status = ViewingStatusToText(v.Status),
 
                     RoomName = string.IsNullOrWhiteSpace(v.RoomName)
                         ? "未知房源"
@@ -346,7 +344,7 @@ namespace RentApi.Controllers
                     {
                         Id = v.Id.ToString(),
                         OrderNumber = v.ReservationNo, // ⭕ 已修正為 ReservationNo
-                        Status = v.Status == 1 ? "confirmed" : v.Status == 2 ? "rejected" : "pending",
+                        Status = ViewingStatusToText(v.Status),
                         RoomName = v.RentHouse != null ? v.RentHouse.Name : "未知房源",
                         Applicant = new ApplicantDetailDto
                         {
@@ -712,12 +710,7 @@ namespace RentApi.Controllers
                         ? $"B-FIX-{v.Id}"
                         : v.ReservationNo,
 
-                    Status = (v.Status ?? 0) == 1 ? "confirmed" :
-                        (v.Status ?? 0) == 2 ? "rejected" :
-                        (v.Status ?? 0) == 3 ? "rescheduled" :
-                        (v.Status ?? 0) == 4 ? "matched" :
-                        (v.Status ?? 0) == 5 ? "closed" :
-                        "pending",
+                    Status = ViewingStatusToText(v.Status),
 
                     RoomName = string.IsNullOrWhiteSpace(v.RoomName)
                         ? "未知房源"
@@ -898,12 +891,7 @@ namespace RentApi.Controllers
         ? $"B-FIX-{v.Id}"
         : v.ReservationNo,
 
-                    Status = (v.Status ?? 0) == 1 ? "confirmed" :
-             (v.Status ?? 0) == 2 ? "rejected" :
-             (v.Status ?? 0) == 3 ? "rescheduled" :
-             (v.Status ?? 0) == 4 ? "matched" :
-             (v.Status ?? 0) == 5 ? "closed" :
-             "pending",
+                    Status = ViewingStatusToText(v.Status),
 
                     ApplicationFlowType = string.IsNullOrWhiteSpace(v.ApplicationFlowType)
         ? "new"
@@ -1589,6 +1577,32 @@ namespace RentApi.Controllers
                 return NotFound();
             }
             return Ok(res);
+        }
+
+        private static string ViewingStatusToText(int? status)
+        {
+            return status switch
+            {
+                1 => "confirmed",
+                2 => "rejected",
+                3 => "rescheduled",
+                4 => "matched",
+                5 => "closed",
+                _ => "pending"
+            };
+        }
+
+        private static int ViewingStatusTextToInt(string? status)
+        {
+            return status switch
+            {
+                "confirmed" => 1,
+                "rejected" => 2,
+                "rescheduled" => 3,
+                "matched" => 4,
+                "closed" => 5,
+                _ => 0
+            };
         }
     }
 }
