@@ -68,20 +68,18 @@ namespace RentApi.Controllers
                     {
                         var aiResult = await _matchService.CalculateScoreAsync(user, house);
 
-                        return new HouseMatchResultDto
-                        {
-                            HouseId = house.Id,
-                            Name = house.Name,
-                            RentPrice = house.RentPrice,
-                            HouseType = house.HouseType,
-                            Score = aiResult.Score,
-                            Reason = aiResult.Reason
-                        };
-                    }
-                    finally
+                    return new HouseMatchResultDto
                     {
-                        semaphore.Release();
-                    }
+                        HouseId = house.Id,
+                        Name = house.Name,
+                        RentPrice = house.RentPrice,
+                        HouseType = house.HouseType,
+                        Score = aiResult.Score,
+                       
+                        Basis = aiResult.Basis,
+                        Risk = aiResult.Risk,
+                        Suggestion = aiResult.Suggestion
+                    };
                 });
 
                 //var matchTasks = activeHouses.Select(async house =>
