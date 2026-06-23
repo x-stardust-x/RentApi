@@ -61,6 +61,17 @@ namespace RentApi.Controllers {
             _context.SaveChanges();
             return Ok(existingAdmin);
         }
+
+        [HttpPut("edit-password/{id}")]
+        public IActionResult ResetPassword(int id, [FromBody] string pwd) {
+            var existingAdmin = _context.Admin.FirstOrDefault(a => a.Id == id);
+            if (existingAdmin == null)
+                return NotFound();
+            existingAdmin.Pwd = pwd;
+            _context.SaveChanges();
+            return Ok(existingAdmin);
+        }
+
         //password reset
         [HttpPut("reset-password/{id}")]
         public IActionResult ResetPassword(int id) {

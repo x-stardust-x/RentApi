@@ -11,8 +11,8 @@ namespace RentApi.Controllers
     {
         private readonly MatchService _matchService;
 
-        private readonly AppDbContext _context; 
-        
+        private readonly AppDbContext _context;
+
         // 注入我們剛剛寫好的 MatchService 大腦
         public MatchController(MatchService matchService, AppDbContext context)
         {
@@ -28,48 +28,90 @@ namespace RentApi.Controllers
                 return BadRequest(new { message = "請求資料不可為空！" });
             }
 
-            
-            var result = await _matchService.CalculateScoreAsync(request.User, request.House);
+            try
+            {
+                
+                var singleHouseList = new List<object> { request.House };
 
-            return Ok(result);
+               
+                var batchResults = await _matchService.CalculateBatchScoresAsync(request.User, singleHouseList);
+
+                
+                var result = batchResults.FirstOrDefault();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("match-all")]
         public async Task<IActionResult> MatchAllHouses([FromBody] UserProfileDto user)
         {
-            
-            var activeHouses = await _context.Rent_Houses
-                .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
-                .ToListAsync();
+            // if (user.SubscriptionTier < 3)
+            // {
+            //     return BadRequest(new { message = "此為 VIP 專屬功能，請升級「尊榮 AI 秘書」方案解鎖！" });
+            // }
 
-            if (!activeHouses.Any()) {
-                return Ok(new List<HouseMatchResultDto>());
-            }
-
-
-            var matchTasks = activeHouses.Select(async house =>
+            try
             {
-               
-                var aiResult = await _matchService.CalculateScoreAsync(user, house);
+                // 1. 撈出所有可出租的房子
+                var activeHouses = await _context.Rent_Houses
+                    .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
+                    .ToListAsync();
 
-                return new HouseMatchResultDto
+                if (!activeHouses.Any())
                 {
-                    HouseId = house.Id,
-                    Name = house.Name,
-                    RentPrice = house.RentPrice,
-                    HouseType = house.HouseType,
-                    Score = aiResult.Score,
-                    Reason = aiResult.Reason
-                };
-            });
+                    return Ok(new List<HouseMatchResultDto>());
+                }
 
-            
-            var allResults = await Task.WhenAll(matchTasks);
+                var aiResults = await _matchService.CalculateBatchScoresAsync(user, activeHouses);
 
-            
-            var sortedResults = allResults.OrderByDescending(r => r.Score).ToList();
+               
+                var houseLookup = activeHouses.ToDictionary(h => h.Id);
 
-            return Ok(sortedResults);
+               
+                var sortedResults = aiResults
+                    .Where(ai => houseLookup.ContainsKey(ai.HouseId)) 
+                    .Select(ai =>
+                    {
+                        var house = houseLookup[ai.HouseId];
+                        return new HouseMatchResultDto
+                        {
+                            HouseId = house.Id,
+                            Name = house.Name,
+                            RentPrice = house.RentPrice,
+                            HouseType = house.HouseType,
+                            Score = ai.Score,
+                            Basis = ai.Basis,
+                            Risk = ai.Risk,
+                            Suggestion = ai.Suggestion
+                        };
+                    })
+                    .OrderByDescending(r => r.Score) 
+                    .ToList();
+
+                return Ok(sortedResults);
+            }
+            catch (HttpRequestException ex)
+            {
+                
+                return StatusCode(503, new
+                {
+                    message = "AI 目前連線異常，請稍後再試！",
+                    details = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = "伺服器內部發生錯誤，工程師正在搶修中！",
+                    details = ex.Message
+                });
+            }
         }
     }
 }

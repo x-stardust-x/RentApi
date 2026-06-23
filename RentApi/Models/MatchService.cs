@@ -14,84 +14,167 @@ public class MatchService
         _gemini = gemini;
     }
 
-    public async Task<MatchResult> CalculateScoreAsync(object user, object house)
+    public async Task<List<MatchResult>> CalculateBatchScoresAsync(object user, IEnumerable<object> houses)
     {
-        // 1. 將前端傳進來的物件轉換成 JSON 字串
+        var finalResults = new List<MatchResult>();
+        var housesForAi = new List<object>();
+
+       
         var userJson = JsonSerializer.Serialize(user);
-        var houseJson = JsonSerializer.Serialize(house);
-
-        // ==========================================
-        // 🚨 第一關：C# 嚴格海選 (Hard Filter)
-        // ==========================================
         using var userDoc = JsonDocument.Parse(userJson);
-        using var houseDoc = JsonDocument.Parse(houseJson);
         var userRoot = userDoc.RootElement;
-        var houseRoot = houseDoc.RootElement;
 
-        // 攔截條件 A：抽菸規範 (假設房子禁菸，但租客抽菸 -> 直接秒殺)
         bool isSmoking = userRoot.TryGetProperty("isSmoking", out var s) && s.GetBoolean();
-        bool allowSmoking = houseRoot.TryGetProperty("allowSmoking", out var a) && a.GetBoolean();
+        bool hasPet = userRoot.TryGetProperty("hasPet", out var p) && p.GetBoolean();
 
-        if (isSmoking && !allowSmoking)
+        foreach (var house in houses)
         {
-            // 系統直接退件，完全不呼叫 AI，省時又省額度！
-            return new MatchResult { Score = 0, Reason = "【系統初步篩選未通過】房屋嚴格禁菸，但租客有抽菸習慣，條件不符。" };
+            var houseJson = JsonSerializer.Serialize(house);
+            using var houseDoc = JsonDocument.Parse(houseJson);
+            var houseRoot = houseDoc.RootElement;
+
+
+            int currentHouseId = 0;
+            if (houseRoot.TryGetProperty("Id", out var idProp) ||
+                houseRoot.TryGetProperty("id", out idProp) ||
+                houseRoot.TryGetProperty("houseId", out idProp))
+            {
+                currentHouseId = idProp.GetInt32();
+            }
+
+            bool allowSmoking = houseRoot.TryGetProperty("allowSmoking", out var a) && a.GetBoolean();
+            bool allowPet = houseRoot.TryGetProperty("allowPet", out var ap) && ap.GetBoolean();
+
+           
+            if (isSmoking && !allowSmoking)
+            {
+                finalResults.Add(new MatchResult
+                {
+                    HouseId = currentHouseId,
+                    Score = 0,
+                    Basis = "【系統初步篩選未通過】",
+                    Risk = "房屋嚴格禁菸，但租客有抽菸習慣，條件不符。",
+                    Suggestion = "建議尋找其他允許抽菸的租屋物件。"
+                });
+                continue; 
+            }
+
+            
+            if (hasPet && !allowPet)
+            {
+                finalResults.Add(new MatchResult
+                {
+                    HouseId = currentHouseId,
+                    Score = 0,
+                    Basis = "【系統初步篩選未通過】",
+                    Risk = "房屋禁止飼養寵物，但租客有飼養寵物，條件不符。",
+                    Suggestion = "建議尋找其他寵物友善的租屋物件。"
+                });
+                continue; 
+            }
+
+            
+            housesForAi.Add(house);
         }
+
+       
+        if (!housesForAi.Any())
+        {
+            return finalResults;
+        }
+
 
         
-        bool hasPet = userRoot.TryGetProperty("hasPet", out var p) && p.GetBoolean();
-        bool allowPet = houseRoot.TryGetProperty("allowPet", out var ap) && ap.GetBoolean();
+        var housesForAiJson = JsonSerializer.Serialize(housesForAi);
 
-        if (hasPet && !allowPet)
+        try
         {
-            return new MatchResult { Score = 0, Reason = "【系統初步篩選未通過】房屋禁止飼養寵物，條件不符。" };
-        }
-       
-        var prompt = $$"""
-            你是一位專業的「共居生活租賃媒合評分 AI」。
-            請嚴格根據以下提供的【User (租客生活習慣)】與【House (房屋與室友規範)】資料，計算出兩者的生活契合度。
-           
+            var prompt = $$"""
+            你是一位專業的「共居生活租賃媒合評分 AI 秘書」。
+            我將提供一位【租客資料】以及【多筆房屋資料 (陣列)】。
+            請一次幫我評估該租客與「每一間」房屋的生活契合度。
             
             【評分標準請嚴格遵守】：
             - 90~100分：作息與習慣完美契合，且無任何衝突。
-            - 70~89分：有些微差異但不影響居住（例如輕量室內運動不吵鬧）。
-            - 0~69分：有明顯衝突（如日夜顛倒、違反禁菸/寵物規定）。
+            - 70~89分：有些微差異但不影響居住。
+            - 0~69分：有明顯衝突。
 
-            【租客資料】：{JsonSerializer.Serialize(user)}
-            【房屋資料】：{JsonSerializer.Serialize(house)}
+            【寫作風格與禁忌】
+            1. 請扮演專業、有溫度的真人房產秘書，文筆必須自然流暢。
+            2. 絕對禁止在回覆中出現任何「英文變數名稱」、「屬性名稱」或「程式碼數值」（例如絕對不可以寫出 Pet: true, Smoke: false 等字眼）。
+            3. 請將資料轉化為人類自然語言，例如直接說「租客有養寵物及抽菸習慣」即可。
 
             【輸出格式要求】
-            請「只」回傳一個標準的 JSON 物件，禁止包含任何 Markdown 語法，禁止任何額外說明。
+            請「只」回傳一個標準的 JSON 陣列 (Array)。
+            請確保回傳的數量與輸入的房屋數量完全一致，並使用 houseId 來對應。
+            禁止包含任何 Markdown 語法（如 ```json）。
 
-            JSON 格式範例：
-            {
-              "score": 85,
-              "reason": "租客與現有室友作息高度契合。唯一需要留意的是..."
-            }
+            JSON 陣列格式範例：
+            [
+              {
+                "houseId": 12,
+                "score": 85,
+                "basis": "該物件為獨立套房，租客與現有室友作息高度契合。",
+                "risk": "現有資料未規範禁菸，可能需再與房東確認。",
+                "suggestion": "建議簽約前務必與房東確認相關限制，避免後續居住糾紛。"
+              }
+            ]
 
             【輸入資料】
             租客資料:
             {{userJson}}
 
-            房屋與規範資料:
-            {{houseJson}}
+            多筆房屋資料 (陣列):
+            {{housesForAiJson}}
             """;
 
-        var rawResponse = await _gemini.GenerateAsync(prompt);
-        var cleanJson = CleanAiJson(rawResponse);
+            var rawResponse = await _gemini.GenerateAsync(prompt);
+            var cleanJson = CleanAiJson(rawResponse);
 
-        try
-        {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var result = JsonSerializer.Deserialize<MatchResult>(cleanJson, options);
-            return result ?? new MatchResult { Score = 0, Reason = "系統媒合失敗" };
+            var aiResults = JsonSerializer.Deserialize<List<MatchResult>>(cleanJson, options);
+
+            if (aiResults != null)
+            {
+               
+                finalResults.AddRange(aiResults);
+            }
+
+            return finalResults;
         }
-        catch (JsonException ex)
+        catch (Exception ex)
         {
-            return new MatchResult { Score = 50, Reason = $"[解析失敗] 錯誤：{ex.Message}" };
+           
+            Console.WriteLine($" 成功攔截 503 或 JSON 錯誤：{ex.Message}");
+
+            foreach (var house in housesForAi)
+            {
+                var hJson = JsonSerializer.Serialize(house);
+                using var hDoc = JsonDocument.Parse(hJson);
+                int hId = 0;
+                if (hDoc.RootElement.TryGetProperty("Id", out var hIdProp) ||
+                    hDoc.RootElement.TryGetProperty("id", out hIdProp) ||
+                    hDoc.RootElement.TryGetProperty("houseId", out hIdProp))
+                {
+                    hId = hIdProp.GetInt32();
+                }
+                string hName = hDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : "此精選房源";
+
+                
+                finalResults.Add(new MatchResult
+                {
+                    HouseId = hId,
+                    Score = 80,
+                    Basis = $"【系統安全防禦機制】已成功連結房源「{hName}」之基礎結構。",
+                    Risk = "由於目前 AI 秘書正在處理爆量的配對需求，暫時無法為您評估深度的生活習慣衝突。",
+                    Suggestion = "建議您先將此物件加入追蹤，或直接聯絡房東進行實地看房與習慣確認！"
+                });
+            }
+
+            return finalResults;
         }
     }
-    
+
 
     /// <summary>
     /// 輔助方法：清除 AI 可能誤加的 Markdown 標籤 (如 ```json)
