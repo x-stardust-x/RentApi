@@ -143,7 +143,7 @@ public class MatchService
         }
         catch (Exception ex)
         {
-           
+
             Console.WriteLine($" 成功攔截 503 或 JSON 錯誤：{ex.Message}");
 
             foreach (var house in housesForAi)
@@ -159,7 +159,7 @@ public class MatchService
                 }
                 string hName = hDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : "此精選房源";
 
-                
+
                 finalResults.Add(new MatchResult
                 {
                     HouseId = hId,
