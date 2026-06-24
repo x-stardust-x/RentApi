@@ -57,22 +57,43 @@ namespace RentApi.Controllers
 
             try
             {
-                // 1. 撈出所有可出租的房子
-                var activeHouses = await _context.Rent_Houses
-                    .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
-                    .ToListAsync();
 
-                if (!activeHouses.Any())
+                var rawDataList = await _context.Rent_Houses
+                .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
+                .Take(3)
+                 .Select(h => new
+                 {
+                 House = h, 
+                 Rules = _context.HouseRules.FirstOrDefault(r => r.HouseId == h.Id)
+                 })
+                 .ToListAsync();
+
+                if (!rawDataList.Any())
                 {
                     return Ok(new List<HouseMatchResultDto>());
                 }
+                var slimHouses = rawDataList.Select(item => new
+                {
+                    Id = item.House.Id,                   
+                    Name = item.House.Name,              
+                    HouseType = item.House.HouseType,
 
-                var aiResults = await _matchService.CalculateBatchScoresAsync(user, activeHouses);
+                    allowPet = item.Rules != null && item.Rules.Pet == true,
+                    allowSmoking = item.Rules != null && item.Rules.Smoke == true,
 
-               
-                var houseLookup = activeHouses.ToDictionary(h => h.Id);
+                    sleepTime = item.Rules != null ? item.Rules.SleepTime : null,
+                    wakeTime = item.Rules != null ? item.Rules.WakeTime : null,
+                    cleanLevel = item.Rules != null ? item.Rules.CleanLevel : null
+                }).ToList();
+
                 
-               
+                var aiResults = await _matchService.CalculateBatchScoresAsync(user, slimHouses);
+
+
+
+                var houseLookup = rawDataList.Select(x => x.House).ToDictionary(h => h.Id);
+
+
                 var sortedResults = aiResults
                     .Where(ai => houseLookup.ContainsKey(ai.HouseId)) 
                     .Select(ai =>

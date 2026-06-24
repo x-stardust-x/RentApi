@@ -19,7 +19,7 @@ public class MatchService
         var finalResults = new List<MatchResult>();
         var housesForAi = new List<object>();
 
-       
+
         var userJson = JsonSerializer.Serialize(user);
         using var userDoc = JsonDocument.Parse(userJson);
         var userRoot = userDoc.RootElement;
@@ -45,7 +45,7 @@ public class MatchService
             bool allowSmoking = houseRoot.TryGetProperty("allowSmoking", out var a) && a.GetBoolean();
             bool allowPet = houseRoot.TryGetProperty("allowPet", out var ap) && ap.GetBoolean();
 
-           
+
             if (isSmoking && !allowSmoking)
             {
                 finalResults.Add(new MatchResult
@@ -56,10 +56,10 @@ public class MatchService
                     Risk = "房屋嚴格禁菸，但租客有抽菸習慣，條件不符。",
                     Suggestion = "建議尋找其他允許抽菸的租屋物件。"
                 });
-                continue; 
+                continue;
             }
 
-            
+
             if (hasPet && !allowPet)
             {
                 finalResults.Add(new MatchResult
@@ -70,109 +70,114 @@ public class MatchService
                     Risk = "房屋禁止飼養寵物，但租客有飼養寵物，條件不符。",
                     Suggestion = "建議尋找其他寵物友善的租屋物件。"
                 });
-                continue; 
+                continue;
             }
 
-            
+
             housesForAi.Add(house);
         }
 
-       
+
         if (!housesForAi.Any())
         {
             return finalResults;
         }
 
 
-        
+
         var housesForAiJson = JsonSerializer.Serialize(housesForAi);
 
-        try
-        {
-            var prompt = $$"""
-            你是一位專業的「共居生活租賃媒合評分 AI 秘書」。
-            我將提供一位【租客資料】以及【多筆房屋資料 (陣列)】。
-            請一次幫我評估該租客與「每一間」房屋的生活契合度。
-            
-            【評分標準請嚴格遵守】：
-            - 90~100分：作息與習慣完美契合，且無任何衝突。
-            - 70~89分：有些微差異但不影響居住。
-            - 0~69分：有明顯衝突。
-
-            【寫作風格與禁忌】
-            1. 請扮演專業、有溫度的真人房產秘書，文筆必須自然流暢。
-            2. 絕對禁止在回覆中出現任何「英文變數名稱」、「屬性名稱」或「程式碼數值」（例如絕對不可以寫出 Pet: true, Smoke: false 等字眼）。
-            3. 請將資料轉化為人類自然語言，例如直接說「租客有養寵物及抽菸習慣」即可。
-
-            【輸出格式要求】
-            請「只」回傳一個標準的 JSON 陣列 (Array)。
-            請確保回傳的數量與輸入的房屋數量完全一致，並使用 houseId 來對應。
-            禁止包含任何 Markdown 語法（如 ```json）。
-
-            JSON 陣列格式範例：
-            [
-              {
-                "houseId": 12,
-                "score": 85,
-                "basis": "該物件為獨立套房，租客與現有室友作息高度契合。",
-                "risk": "現有資料未規範禁菸，可能需再與房東確認。",
-                "suggestion": "建議簽約前務必與房東確認相關限制，避免後續居住糾紛。"
-              }
-            ]
-
-            【輸入資料】
-            租客資料:
-            {{userJson}}
-
-            多筆房屋資料 (陣列):
-            {{housesForAiJson}}
-            """;
-
-            var rawResponse = await _gemini.GenerateAsync(prompt);
-            var cleanJson = CleanAiJson(rawResponse);
-
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var aiResults = JsonSerializer.Deserialize<List<MatchResult>>(cleanJson, options);
-
-            if (aiResults != null)
-            {
-               
-                finalResults.AddRange(aiResults);
-            }
-
-            return finalResults;
-        }
-        catch (Exception ex)
+       
+        foreach (var house in housesForAi)
         {
            
-            Console.WriteLine($" 成功攔截 503 或 JSON 錯誤：{ex.Message}");
+            var houseJson = JsonSerializer.Serialize(house);
 
-            foreach (var house in housesForAi)
+           
+            using var hDoc = JsonDocument.Parse(houseJson);
+            int currentHouseId = 0;
+            if (hDoc.RootElement.TryGetProperty("Id", out var hIdProp) ||
+                hDoc.RootElement.TryGetProperty("id", out hIdProp) ||
+                hDoc.RootElement.TryGetProperty("houseId", out hIdProp))
             {
-                var hJson = JsonSerializer.Serialize(house);
-                using var hDoc = JsonDocument.Parse(hJson);
-                int hId = 0;
-                if (hDoc.RootElement.TryGetProperty("Id", out var hIdProp) ||
-                    hDoc.RootElement.TryGetProperty("id", out hIdProp) ||
-                    hDoc.RootElement.TryGetProperty("houseId", out hIdProp))
-                {
-                    hId = hIdProp.GetInt32();
-                }
-                string hName = hDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : "此精選房源";
+                currentHouseId = hIdProp.GetInt32();
+            }
+            string currentHouseName = hDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : "此精選房源";
 
+           
+            try
+            {
                 
+                var prompt = $$"""
+                你是一位專業的「共居生活租賃媒合評分 AI 秘書」。
+                我將提供一位【租客資料】以及【單一間房屋資料】。
+                請幫我評估該租客與此房屋的生活契合度。
+
+                【評分標準請嚴格遵守】：
+                - 90~100分：作息與習慣完美契合，且無任何衝突。
+                - 70~89分：有些微差異但不影響居住。
+                - 0~69分：有明顯衝突。
+
+                【寫作風格與禁忌】
+                1. 請扮演專業、有溫度的真人房產秘書，文筆必須自然流暢。
+                2. 絕對禁止在回覆中出現任何「英文變數名稱」、「屬性名稱」或「程式碼數值」。
+                3. 請將資料轉化為人類自然語言。
+
+                【輸出格式要求】
+                請「只」回傳一個標準的 JSON 物件 (Object)。禁止包含任何 Markdown 語法（如 ```json）。
+
+                JSON 格式範例：
+                {
+                  "score": 85,
+                  "basis": "該物件為獨立套房，租客與現有室友作息高度契合。",
+                  "risk": "現有資料未規範禁菸，可能需再與房東確認。",
+                  "suggestion": "建議簽約前務必與房東確認相關限制，避免後續居住糾紛。"
+                }
+
+                【輸入資料】
+                租客資料:
+                {{userJson}}
+
+                單一房屋資料:
+                {{houseJson}}
+                """;
+
+               
+                var rawResponse = await _gemini.GenerateAsync(prompt);
+                var cleanJson = CleanAiJson(rawResponse);
+
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+               
+                var aiResult = JsonSerializer.Deserialize<MatchResult>(cleanJson, options);
+
+                if (aiResult != null)
+                {
+                   
+                    aiResult.HouseId = currentHouseId;
+                    finalResults.Add(aiResult);
+                }
+            }
+            catch (Exception ex)
+            {
+               
+                Console.WriteLine($" 成功攔截 503 或 JSON 錯誤 (房屋ID: {currentHouseId})：{ex.Message}");
+
                 finalResults.Add(new MatchResult
                 {
-                    HouseId = hId,
+                    HouseId = currentHouseId,
                     Score = 80,
-                    Basis = $"【系統安全防禦機制】已成功連結房源「{hName}」之基礎結構。",
-                    Risk = "由於目前 AI 秘書正在處理爆量的配對需求，暫時無法為您評估深度的生活習慣衝突。",
+                    Basis = $"【系統安全防禦機制】已成功連結房源「{currentHouseName}」之基礎結構。",
+                    Risk = "由於目前 AI 秘書正在處理這間房子的配對需求時遇到亂流，暫時無法評估深度習慣衝突。",
                     Suggestion = "建議您先將此物件加入追蹤，或直接聯絡房東進行實地看房與習慣確認！"
                 });
             }
 
-            return finalResults;
+            
+            await Task.Delay(3000);
         }
+
+        return finalResults;
     }
 
 
