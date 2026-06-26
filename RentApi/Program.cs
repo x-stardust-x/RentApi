@@ -43,8 +43,7 @@ builder.Services.AddAuthentication("Bearer")
     });
 
 builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
-
-builder.Services.AddScoped<MatchService>();
+builder.Services.AddScoped<RentApi.Models.MatchService>();
 
 builder.Services.AddAuthorization();
 
@@ -68,6 +67,7 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

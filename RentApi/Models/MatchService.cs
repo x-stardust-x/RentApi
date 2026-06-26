@@ -1,7 +1,6 @@
 ﻿using RentApi.Models.DTO;
 using System.Text.Json;
-
-using RentApi.Models;
+using RentApi.Services;
 namespace RentApi.Models; // 記得換成你的命名空間
 
 public class MatchService
@@ -104,8 +103,14 @@ public class MatchService
             }
             string currentHouseName = hDoc.RootElement.TryGetProperty("name", out var nProp) ? nProp.GetString() : "此精選房源";
 
-           
-            try
+            return finalResults;
+        }
+        catch (Exception ex)
+        {
+
+            Console.WriteLine($" 成功攔截 503 或 JSON 錯誤：{ex.Message}");
+
+            foreach (var house in housesForAi)
             {
                 
                 var prompt = $$"""
@@ -134,34 +139,6 @@ public class MatchService
                   "suggestion": "建議簽約前務必與房東確認相關限制，避免後續居住糾紛。"
                 }
 
-                【輸入資料】
-                租客資料:
-                {{userJson}}
-
-                單一房屋資料:
-                {{houseJson}}
-                """;
-
-               
-                var rawResponse = await _gemini.GenerateAsync(prompt);
-                var cleanJson = CleanAiJson(rawResponse);
-
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-               
-                var aiResult = JsonSerializer.Deserialize<MatchResult>(cleanJson, options);
-
-                if (aiResult != null)
-                {
-                   
-                    aiResult.HouseId = currentHouseId;
-                    finalResults.Add(aiResult);
-                }
-            }
-            catch (Exception ex)
-            {
-               
-                Console.WriteLine($" 成功攔截 503 或 JSON 錯誤 (房屋ID: {currentHouseId})：{ex.Message}");
 
                 finalResults.Add(new MatchResult
                 {

@@ -57,6 +57,11 @@ namespace RentApi.Controllers
 
             try
             {
+                // 1. 撈出所有可出租的房子
+                var activeHouses = await _context.Rent_Houses
+                    .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
+                    .Take(5)
+                    .ToListAsync();
 
                 var rawDataList = await _context.Rent_Houses
                 .Where(h => h.RentalStatus == "available" && h.IsVisible == true)
