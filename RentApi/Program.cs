@@ -1,17 +1,26 @@
-using Microsoft.EntityFrameworkCore;
-using RentApi.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RentApi.Data;
+using RentApi.Interfaces;
+using RentApi.Services;
 using System.Text;
-
+using RentApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<HouseFacilityService>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<LocationService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<NewsService>();
+builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<FAQService>();
+builder.Services.AddScoped<IRentalMatchingService, RentalMatchingService>();
 
 builder.Services.AddCors(options => {
     options.AddPolicy("AllowAngular",
@@ -33,11 +42,14 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
+builder.Services.AddHttpClient<RentApi.Models.GeminiService>();
+builder.Services.AddScoped<RentApi.Models.MatchService>();
+
 builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
+        builder.Configuration.GetConnectionString("IPConnection")
     )
 );
 
@@ -53,6 +65,9 @@ app.UseCors("AllowAngular");
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
